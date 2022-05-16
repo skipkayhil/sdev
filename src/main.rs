@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
 use std::env;
-use std::path::Path;
 use std::process::Command;
 
 mod repo;
@@ -27,7 +26,7 @@ fn main() {
     match &cli.command {
         Commands::Clone { repo } => {
             let url = repo.to_url();
-            let path = Path::new(&env::var("HOME").unwrap()).join(&repo.to_relative_path());
+            let path = repo.to_path_with_base(&env::var("HOME").expect("unknown HOME directory"));
 
             println!(
                 "\x1b[90m$ git clone \"{}\" \"{}\"\x1b[0m",

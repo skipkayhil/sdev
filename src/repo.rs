@@ -1,3 +1,4 @@
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 pub struct Repo {
@@ -6,8 +7,12 @@ pub struct Repo {
 }
 
 impl Repo {
-    pub fn to_relative_path(&self) -> String {
-        format!("src/github.com/{}/{}", &self.owner, &self.name)
+    pub fn to_path_with_base(&self, base: &str) -> PathBuf {
+        Path::new(base)
+            .join("src")
+            .join("github.com")
+            .join(&self.owner)
+            .join(&self.name)
     }
 
     pub fn to_url(&self) -> String {
@@ -16,14 +21,14 @@ impl Repo {
 }
 
 #[test]
-fn test_to_relative_path() {
+fn test_to_path_with_base() {
     let repo = Repo {
         owner: "skipkayhil".to_string(),
         name: "dotfiles".to_string(),
     };
     assert_eq!(
-        repo.to_relative_path(),
-        "src/github.com/skipkayhil/dotfiles"
+        repo.to_path_with_base("/home/hartley"),
+        PathBuf::from("/home/hartley/src/github.com/skipkayhil/dotfiles")
     )
 }
 
