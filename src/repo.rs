@@ -1,0 +1,68 @@
+use std::str::FromStr;
+
+pub struct Repo {
+    owner: String,
+    name: String,
+}
+
+impl Repo {
+    pub fn to_path(&self) -> String {
+        format!("~/src/github.com/{}/{}", &self.owner, &self.name)
+    }
+
+    pub fn to_url(&self) -> String {
+        format!("git@github.com:{}/{}.git", &self.owner, &self.name)
+    }
+}
+
+#[test]
+fn test_to_path() {
+    let repo = Repo {
+        owner: "skipkayhil".to_string(),
+        name: "dotfiles".to_string(),
+    };
+    assert_eq!(repo.to_path(), "~/src/github.com/skipkayhil/dotfiles")
+}
+
+#[test]
+fn test_to_url() {
+    let repo = Repo {
+        owner: "skipkayhil".to_string(),
+        name: "dotfiles".to_string(),
+    };
+    assert_eq!(repo.to_url(), "git@github.com:skipkayhil/dotfiles.git")
+}
+
+impl FromStr for Repo {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split('/').collect();
+
+        match parts[..] {
+            [name] => Ok(Self {
+                owner: "skipkayhil".to_string(),
+                name: name.to_string(),
+            }),
+            [owner, name] => Ok(Self {
+                owner: owner.to_string(),
+                name: name.to_string(),
+            }),
+            _ => Err(format!("Invalid repo: {}", s)),
+        }
+    }
+}
+
+#[test]
+fn parses_name_only() {
+    let repo: Repo = "friday".parse().unwrap();
+    assert_eq!("skipkayhil", repo.owner);
+    assert_eq!("friday", repo.name);
+}
+
+#[test]
+fn parses_name_and_owner() {
+    let repo: Repo = "rails/rails".parse().unwrap();
+    assert_eq!("rails", repo.owner);
+    assert_eq!("rails", repo.name);
+}
