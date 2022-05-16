@@ -5,6 +5,12 @@ use std::process::Command;
 mod repo;
 use crate::repo::Repo;
 
+macro_rules! println_shell {
+    ($($arg:tt)*) => ({
+        println!("\x1b[90m$ {}\x1b[0m", format_args!($($arg)*));
+    })
+}
+
 #[derive(Parser)]
 struct Cli {
     #[clap(subcommand)]
@@ -28,11 +34,7 @@ fn main() {
             let url = repo.to_url();
             let path = repo.to_path_with_base(&env::var("HOME").expect("unknown HOME directory"));
 
-            println!(
-                "\x1b[90m$ git clone \"{}\" \"{}\"\x1b[0m",
-                url,
-                path.display()
-            );
+            println_shell!("git clone \"{}\" \"{}\"", url, path.display());
 
             let status = Command::new("git")
                 .arg("clone")
