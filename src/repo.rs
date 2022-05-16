@@ -6,8 +6,8 @@ pub struct Repo {
 }
 
 impl Repo {
-    pub fn to_path(&self) -> String {
-        format!("~/src/github.com/{}/{}", &self.owner, &self.name)
+    pub fn to_relative_path(&self) -> String {
+        format!("src/github.com/{}/{}", &self.owner, &self.name)
     }
 
     pub fn to_url(&self) -> String {
@@ -16,12 +16,15 @@ impl Repo {
 }
 
 #[test]
-fn test_to_path() {
+fn test_to_relative_path() {
     let repo = Repo {
         owner: "skipkayhil".to_string(),
         name: "dotfiles".to_string(),
     };
-    assert_eq!(repo.to_path(), "~/src/github.com/skipkayhil/dotfiles")
+    assert_eq!(
+        repo.to_relative_path(),
+        "src/github.com/skipkayhil/dotfiles"
+    )
 }
 
 #[test]
