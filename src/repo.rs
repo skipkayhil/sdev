@@ -7,6 +7,10 @@ pub struct Repo {
 }
 
 impl Repo {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn to_path_with_base(&self, base: &str) -> PathBuf {
         Path::new(base)
             .join("src")

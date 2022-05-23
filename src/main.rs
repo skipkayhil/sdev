@@ -25,6 +25,11 @@ enum Commands {
         #[clap(parse(try_from_str))]
         repo: Repo,
     },
+    /// Attaches to a tmux session for the repo (and creates it if necessary)
+    Tmux {
+        #[clap(parse(try_from_str))]
+        repo: Repo,
+    },
 }
 
 struct SdevCommand {
@@ -42,6 +47,17 @@ impl SdevCommand {
                 repo.to_path_with_base(&env::var("HOME").expect("unknown HOME directory"))
                     .display()
                     .to_string(),
+            ],
+        }
+    }
+
+    fn tmux(repo: &Repo, command: &str) -> Self {
+        Self {
+            program: "tmux".to_string(),
+            args: vec![
+                command.to_string(),
+                "-t".to_string(),
+                repo.name().to_string(),
             ],
         }
     }
@@ -76,11 +92,38 @@ impl fmt::Display for SdevCommand {
 fn main() {
     let cli = Cli::parse();
 
-    let command = match &cli.command {
-        Commands::Clone { repo } => SdevCommand::clone(repo),
-    };
+    let status = match &cli.command {
+        Commands::Clone { repo } => SdevCommand::clone(repo).run(),
+        Commands::Tmux { repo } => {
+            let session_exists = Command::new("tmux")
+                .arg("has")
+                .arg("-t")
+                .arg(repo.name())
+                .output()
+                .expect("failed to execute 'tmux has'")
+                .status
+                .success();
 
-    let status = command.run();
+            if !session_exists {
+                Command::new("tmux")
+                    .arg("new-session")
+                    .arg("-d")
+                    .arg("-s")
+                    .arg(repo.name())
+                    .arg("-c")
+                    .arg(repo.to_path_with_base(&env::var("HOME").expect("unknown HOME directory")))
+                    .output()
+                    .expect("failed to execute 'tmux new-session'");
+            }
+
+            let attach_command = match env::var("TMUX") {
+                Ok(_) => "switch-client",
+                Err(_) => "attach-session",
+            };
+
+            SdevCommand::tmux(repo, attach_command).run()
+        }
+    };
 
     if !status.success() {
         std::process::exit(status.code().unwrap());
