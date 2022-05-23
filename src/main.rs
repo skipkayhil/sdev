@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::env;
-use std::process::Command;
+use std::fmt;
+use std::process::{Command, ExitStatus};
 
 mod repo;
 use crate::repo::Repo;
@@ -26,27 +27,63 @@ enum Commands {
     },
 }
 
+struct SdevCommand {
+    program: String,
+    args: Vec<String>,
+}
+
+impl SdevCommand {
+    fn clone(repo: &Repo) -> Self {
+        Self {
+            program: "git".to_string(),
+            args: vec![
+                "clone".to_string(),
+                repo.to_url(),
+                repo.to_path_with_base(&env::var("HOME").expect("unknown HOME directory"))
+                    .display()
+                    .to_string(),
+            ],
+        }
+    }
+
+    fn run(&self) -> ExitStatus {
+        println_shell!("{}\n", &self);
+
+        let mut command = Command::new(&self.program);
+
+        for arg in self.args.iter() {
+            command.arg(&arg);
+        }
+
+        command
+            .status()
+            .unwrap_or_else(|_| panic!("failed to execute {}", &self.program))
+    }
+}
+
+impl fmt::Display for SdevCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &self.program)?;
+
+        for arg in self.args.iter() {
+            write!(f, " {}", arg)?;
+        }
+
+        Ok(())
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
-    match &cli.command {
-        Commands::Clone { repo } => {
-            let url = repo.to_url();
-            let path = repo.to_path_with_base(&env::var("HOME").expect("unknown HOME directory"));
+    let command = match &cli.command {
+        Commands::Clone { repo } => SdevCommand::clone(repo),
+    };
 
-            println_shell!("git clone \"{}\" \"{}\"", url, path.display());
+    let status = command.run();
 
-            let status = Command::new("git")
-                .arg("clone")
-                .arg(&url)
-                .arg(&path)
-                .status()
-                .expect("failed to execute git");
-
-            if !status.success() {
-                std::process::exit(status.code().unwrap());
-            }
-        }
+    if !status.success() {
+        std::process::exit(status.code().unwrap());
     }
 }
 
