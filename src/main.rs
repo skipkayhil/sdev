@@ -3,7 +3,9 @@ use std::env;
 use std::fmt;
 use std::process::{Command, ExitStatus};
 
+mod cmd;
 mod repo;
+
 use crate::repo::Repo;
 
 macro_rules! println_shell {
@@ -38,14 +40,7 @@ struct SdevCommand {
 }
 
 impl SdevCommand {
-    fn clone(repo: &Repo) -> Self {
-        let mut command = Command::new("git");
-
-        command
-            .arg("clone")
-            .arg(repo.to_url())
-            .arg(repo.to_path_with_base(&env::var("HOME").expect("unknown HOME directory")));
-
+    fn new(command: Command) -> Self {
         Self { command }
     }
 
@@ -82,7 +77,7 @@ fn main() {
     let cli = Cli::parse();
 
     let status = match &cli.command {
-        Commands::Clone { repo } => SdevCommand::clone(repo).run(),
+        Commands::Clone { repo } => SdevCommand::new(cmd::git::clone_cmd(repo)).run(),
         Commands::Tmux { repo } => {
             let session_exists = Command::new("tmux")
                 .arg("has")
