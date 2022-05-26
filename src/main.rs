@@ -6,6 +6,7 @@ mod repo;
 use crate::repo::Repo;
 
 #[derive(Parser)]
+#[clap(disable_help_subcommand = true)]
 struct Cli {
     #[clap(subcommand)]
     command: Commands,
