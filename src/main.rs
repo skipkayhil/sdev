@@ -26,6 +26,7 @@ enum Commands {
         repo: Repo,
     },
     /// Attaches to a tmux session for the repo (and creates it if necessary)
+    #[clap(alias("t"))]
     Tmux {
         #[clap(parse(try_from_str))]
         repo: Repo,
