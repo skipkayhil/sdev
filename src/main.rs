@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use std::env;
 use std::fmt;
 use std::process::{Command, ExitStatus};
 
@@ -44,14 +43,6 @@ impl SdevCommand {
         Self { command }
     }
 
-    fn tmux(repo: &Repo, attach_command: &str) -> Self {
-        let mut command = Command::new("tmux");
-
-        command.arg(attach_command).arg("-t").arg(repo.name());
-
-        Self { command }
-    }
-
     fn run(&mut self) -> ExitStatus {
         println_shell!("{}\n", self);
 
@@ -79,33 +70,11 @@ fn main() {
     let status = match &cli.command {
         Commands::Clone { repo } => SdevCommand::new(cmd::git::clone_cmd(repo)).run(),
         Commands::Tmux { repo } => {
-            let session_exists = Command::new("tmux")
-                .arg("has")
-                .arg("-t")
-                .arg(repo.name())
-                .output()
-                .expect("failed to execute 'tmux has'")
-                .status
-                .success();
-
-            if !session_exists {
-                Command::new("tmux")
-                    .arg("new-session")
-                    .arg("-d")
-                    .arg("-s")
-                    .arg(repo.name())
-                    .arg("-c")
-                    .arg(repo.to_path_with_base(&env::var("HOME").expect("unknown HOME directory")))
-                    .output()
-                    .expect("failed to execute 'tmux new-session'");
+            if !cmd::tmux::session_exists(repo) {
+                cmd::tmux::new_session(repo);
             }
 
-            let attach_command = match env::var("TMUX") {
-                Ok(_) => "switch-client",
-                Err(_) => "attach-session",
-            };
-
-            SdevCommand::tmux(repo, attach_command).run()
+            SdevCommand::new(cmd::tmux::attach_cmd(repo)).run()
         }
     };
 
