@@ -1,3 +1,42 @@
+use std::fmt;
+use std::process::{Command, ExitStatus};
+
+macro_rules! println_shell {
+    ($($arg:tt)*) => ({
+        println!("\x1b[90m$ {}\x1b[0m", format_args!($($arg)*));
+    })
+}
+
+struct PrintableCommand {
+    command: Command,
+}
+
+impl PrintableCommand {
+    fn run(&mut self) -> ExitStatus {
+        println_shell!("{}\n", self);
+
+        self.command
+            .status()
+            .unwrap_or_else(|_| panic!("failed to execute {:?}", self.command.get_program()))
+    }
+}
+
+impl fmt::Display for PrintableCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &self.command.get_program().to_str().unwrap())?;
+
+        for arg in self.command.get_args() {
+            write!(f, " {}", arg.to_str().unwrap())?;
+        }
+
+        Ok(())
+    }
+}
+
+pub fn run_printable(command: Command) -> ExitStatus {
+    PrintableCommand { command }.run()
+}
+
 mod env {
     pub fn home() -> String {
         std::env::var("HOME").expect("unknown HOME directory")
