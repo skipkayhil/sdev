@@ -44,7 +44,7 @@ fn main() {
         Commands::Clone { repo } => cmd::run_printable(cmd::git::clone_cmd(repo, &config)),
         Commands::Tmux { repo } => {
             if !cmd::tmux::session_exists(repo) {
-                cmd::tmux::new_session(repo);
+                cmd::tmux::new_session(repo, &config);
             }
 
             cmd::run_printable(cmd::tmux::attach_cmd(repo))

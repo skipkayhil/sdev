@@ -37,12 +37,6 @@ pub fn run_printable(command: Command) -> ExitStatus {
     PrintableCommand { command }.run()
 }
 
-mod env {
-    pub fn home() -> String {
-        std::env::var("HOME").expect("unknown HOME directory")
-    }
-}
-
 pub mod git {
     use std::process::Command;
 
@@ -64,7 +58,7 @@ pub mod git {
 pub mod tmux {
     use std::process::Command;
 
-    use crate::cmd::env;
+    use crate::config::Config;
     use crate::repo::Repo;
 
     pub fn attach_cmd(repo: &Repo) -> Command {
@@ -80,14 +74,14 @@ pub mod tmux {
         command
     }
 
-    pub fn new_session(repo: &Repo) {
+    pub fn new_session(repo: &Repo, config: &Config) {
         Command::new("tmux")
             .arg("new-session")
             .arg("-d")
             .arg("-s")
             .arg(repo.name())
             .arg("-c")
-            .arg(repo.to_path_with_base(&env::home()))
+            .arg(repo.to_absolute_path(&config.root))
             .output()
             .expect("failed to execute 'tmux new-session'");
     }

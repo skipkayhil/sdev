@@ -15,27 +15,19 @@ impl Repo {
         root.join(&self.owner).join(&self.name)
     }
 
-    pub fn to_path_with_base(&self, base: &str) -> PathBuf {
-        Path::new(base)
-            .join("src")
-            .join("github.com")
-            .join(&self.owner)
-            .join(&self.name)
-    }
-
     pub fn to_url(&self) -> String {
         format!("git@github.com:{}/{}.git", &self.owner, &self.name)
     }
 }
 
 #[test]
-fn test_to_path_with_base() {
+fn test_to_absolute_path() {
     let repo = Repo {
         owner: "skipkayhil".to_string(),
         name: "dotfiles".to_string(),
     };
     assert_eq!(
-        repo.to_path_with_base("/home/hartley"),
+        repo.to_absolute_path(Path::new("/home/hartley/src/github.com")),
         PathBuf::from("/home/hartley/src/github.com/skipkayhil/dotfiles")
     )
 }
