@@ -11,6 +11,10 @@ impl Repo {
         &self.name
     }
 
+    pub fn to_absolute_path(&self, root: &Path) -> PathBuf {
+        root.join(&self.owner).join(&self.name)
+    }
+
     pub fn to_path_with_base(&self, base: &str) -> PathBuf {
         Path::new(base)
             .join("src")

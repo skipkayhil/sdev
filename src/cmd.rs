@@ -46,16 +46,16 @@ mod env {
 pub mod git {
     use std::process::Command;
 
-    use crate::cmd::env;
+    use crate::config::Config;
     use crate::repo::Repo;
 
-    pub fn clone_cmd(repo: &Repo) -> Command {
+    pub fn clone_cmd(repo: &Repo, config: &Config) -> Command {
         let mut command = Command::new("git");
 
         command
             .arg("clone")
             .arg(repo.to_url())
-            .arg(repo.to_path_with_base(&env::home()));
+            .arg(repo.to_absolute_path(&config.root));
 
         command
     }

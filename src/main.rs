@@ -1,8 +1,11 @@
 use clap::{Parser, Subcommand};
+use std::path::Path;
 
 mod cmd;
+mod config;
 mod repo;
 
+use crate::config::Config;
 use crate::repo::Repo;
 
 #[derive(Parser)]
@@ -30,8 +33,15 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
+    let config = Config {
+        // user: "skipkayhil".to_string(),
+        root: Path::new(&std::env::var("HOME").expect("unknown HOME directory"))
+            .join("src")
+            .join("github.com"),
+    };
+
     let status = match &cli.command {
-        Commands::Clone { repo } => cmd::run_printable(cmd::git::clone_cmd(repo)),
+        Commands::Clone { repo } => cmd::run_printable(cmd::git::clone_cmd(repo, &config)),
         Commands::Tmux { repo } => {
             if !cmd::tmux::session_exists(repo) {
                 cmd::tmux::new_session(repo);
