@@ -7,6 +7,16 @@ pub struct Repo {
 }
 
 impl Repo {
+    pub fn from_str_with_fallback(maybe_owned_repo: &MaybeOwnedRepo, fallback_user: &str) -> Repo {
+        Repo {
+            owner: maybe_owned_repo
+                .owner
+                .clone()
+                .unwrap_or_else(|| fallback_user.to_string()),
+            name: maybe_owned_repo.name.clone(),
+        }
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -41,7 +51,13 @@ fn test_to_url() {
     assert_eq!(repo.to_url(), "git@github.com:skipkayhil/dotfiles.git")
 }
 
-impl FromStr for Repo {
+#[derive(Clone)]
+pub struct MaybeOwnedRepo {
+    owner: Option<String>,
+    name: String,
+}
+
+impl FromStr for MaybeOwnedRepo {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -49,11 +65,11 @@ impl FromStr for Repo {
 
         match parts[..] {
             [name] => Ok(Self {
-                owner: "skipkayhil".to_string(),
+                owner: None,
                 name: name.to_string(),
             }),
             [owner, name] => Ok(Self {
-                owner: owner.to_string(),
+                owner: Some(owner.to_string()),
                 name: name.to_string(),
             }),
             _ => Err(format!("Invalid repo: {}", s)),
@@ -63,14 +79,14 @@ impl FromStr for Repo {
 
 #[test]
 fn parses_name_only() {
-    let repo: Repo = "friday".parse().unwrap();
-    assert_eq!("skipkayhil", repo.owner);
+    let repo: MaybeOwnedRepo = "friday".parse().unwrap();
+    assert_eq!(None, repo.owner);
     assert_eq!("friday", repo.name);
 }
 
 #[test]
 fn parses_name_and_owner() {
-    let repo: Repo = "rails/rails".parse().unwrap();
-    assert_eq!("rails", repo.owner);
+    let repo: MaybeOwnedRepo = "rails/rails".parse().unwrap();
+    assert_eq!("rails", repo.owner.unwrap());
     assert_eq!("rails", repo.name);
 }
