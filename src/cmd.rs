@@ -90,7 +90,7 @@ pub mod tmux {
         Command::new("tmux")
             .arg("has")
             .arg("-t")
-            .arg(repo.name())
+            .arg(format!("={}", repo.name()))
             .output()
             .expect("failed to execute 'tmux has'")
             .status
