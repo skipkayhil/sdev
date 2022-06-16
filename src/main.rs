@@ -6,7 +6,7 @@ mod config;
 mod repo;
 
 use crate::config::Config;
-use crate::repo::{MaybeOwnedRepo, Repo};
+use crate::repo::MaybeOwnedRepo;
 
 #[derive(Parser)]
 #[clap(disable_help_subcommand = true)]
@@ -36,12 +36,12 @@ fn main() {
 
     let status = match &cli.command {
         Commands::Clone { repo } => {
-            let parsed_repo = Repo::from_str_with_fallback(repo, &config.user);
+            let parsed_repo = repo.unwrap_or_else(|| config.user.clone());
 
             cmd::run_printable(cmd::git::clone_cmd(&parsed_repo, &config))
         }
         Commands::Tmux { repo } => {
-            let parsed_repo = Repo::from_str_with_fallback(repo, &config.user);
+            let parsed_repo = repo.unwrap_or_else(|| config.user.clone());
 
             if !cmd::tmux::session_exists(&parsed_repo) {
                 cmd::tmux::new_session(&parsed_repo, &config);

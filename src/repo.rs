@@ -7,16 +7,6 @@ pub struct Repo {
 }
 
 impl Repo {
-    pub fn from_str_with_fallback(maybe_owned_repo: &MaybeOwnedRepo, fallback_user: &str) -> Repo {
-        Repo {
-            owner: maybe_owned_repo
-                .owner
-                .clone()
-                .unwrap_or_else(|| fallback_user.to_string()),
-            name: maybe_owned_repo.name.clone(),
-        }
-    }
-
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -55,6 +45,15 @@ fn test_to_url() {
 pub struct MaybeOwnedRepo {
     owner: Option<String>,
     name: String,
+}
+
+impl MaybeOwnedRepo {
+    pub fn unwrap_or_else(&self, fallback: impl Fn() -> String) -> Repo {
+        Repo {
+            owner: self.owner.clone().unwrap_or_else(fallback),
+            name: self.name.clone(),
+        }
+    }
 }
 
 impl FromStr for MaybeOwnedRepo {
