@@ -36,12 +36,17 @@ fn main() {
 
     let status = match &cli.command {
         Commands::Clone { repo } => {
-            let parsed_repo = repo.unwrap_or_else(|| config.user.clone());
+            let parsed_repo = repo.unwrap_or_else(|_| config.user.clone());
 
             cmd::run_printable(cmd::git::clone_cmd(&parsed_repo, &config))
         }
         Commands::Tmux { repo } => {
-            let parsed_repo = repo.unwrap_or_else(|| config.user.clone());
+            let parsed_repo = repo.unwrap_or_else(|name| {
+                cmd::find::owner(name, &config).unwrap_or_else(|error| {
+                    println!("error: {}", error);
+                    std::process::exit(1);
+                })
+            });
 
             if !cmd::tmux::session_exists(&parsed_repo) {
                 cmd::tmux::new_session(&parsed_repo, &config);

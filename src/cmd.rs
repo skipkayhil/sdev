@@ -37,6 +37,44 @@ pub fn run_printable(command: Command) -> ExitStatus {
     PrintableCommand { command }.run()
 }
 
+pub mod find {
+    use crate::config::Config;
+
+    pub fn owner(name: &str, config: &Config) -> Result<String, String> {
+        let owners_path = config.root.join(&config.user).join(name);
+
+        if owners_path.is_dir() {
+            return Ok(config.user.to_string());
+        }
+
+        let owners: Vec<String> = config
+            .root
+            .read_dir()
+            .unwrap()
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                let entry_path = entry.path().join(name);
+
+                if entry_path.is_dir() {
+                    Some(entry.file_name().into_string().ok()?)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        match &owners[..] {
+            [owner] => Ok(owner.to_string()),
+            [] => Err(format!("No repos named {} found", name)),
+            _ => Err(format!(
+                "Multiple owners found for {} repo: {}",
+                name,
+                owners.join(",")
+            )),
+        }
+    }
+}
+
 pub mod git {
     use std::process::Command;
 

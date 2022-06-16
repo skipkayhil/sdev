@@ -48,9 +48,9 @@ pub struct MaybeOwnedRepo {
 }
 
 impl MaybeOwnedRepo {
-    pub fn unwrap_or_else(&self, fallback: impl Fn() -> String) -> Repo {
+    pub fn unwrap_or_else(&self, fallback: impl Fn(&str) -> String) -> Repo {
         Repo {
-            owner: self.owner.clone().unwrap_or_else(fallback),
+            owner: self.owner.clone().unwrap_or_else(|| fallback(&self.name)),
             name: self.name.clone(),
         }
     }
