@@ -105,9 +105,22 @@ pub mod tmux {
             Err(_) => "attach-session",
         };
 
+        let tmux_friendly_name: String = repo
+            .name()
+            .chars()
+            .map(|x| match x {
+                '.' => '_',
+                ':' => '_',
+                _ => x,
+            })
+            .collect();
+
         let mut command = Command::new("tmux");
 
-        command.arg(attach_command).arg("-t").arg(repo.name());
+        command
+            .arg(attach_command)
+            .arg("-t")
+            .arg(tmux_friendly_name);
 
         command
     }
