@@ -9,9 +9,9 @@ use crate::config::Config;
 use crate::repo::MaybeOwnedRepo;
 
 #[derive(Parser)]
-#[clap(disable_help_subcommand = true)]
+#[command(version, disable_help_subcommand = true)]
 struct Cli {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     command: Commands,
 }
 
@@ -20,7 +20,7 @@ enum Commands {
     /// Clones a repo into a pre-determined folder
     Clone { repo: MaybeOwnedRepo },
     /// Attaches to a tmux session for the repo (and creates it if necessary)
-    #[clap(alias("t"))]
+    #[command(alias("t"))]
     Tmux { repo: MaybeOwnedRepo },
 }
 

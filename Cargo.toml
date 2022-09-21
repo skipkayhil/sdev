@@ -8,6 +8,6 @@ edition = "2021"
 [dependencies]
 
 [dependencies.clap]
-version = "3"
+version = "4.0.0-rc.1"
 default-features = false
-features = ["std", "derive", "unstable-v4"]
+features = ["std", "derive", "error-context", "help", "usage"]
