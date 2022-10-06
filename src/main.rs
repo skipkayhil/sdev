@@ -34,30 +34,30 @@ fn main() {
             .join("github.com"),
     };
 
-    let status = match &cli.command {
-        Commands::Clone { repo } => {
-            let parsed_repo = repo.unwrap_or_else(|_| config.user.clone());
+    try_main(cli, config).unwrap_or_else(|message| {
+        println!("error: {}", message);
+        std::process::exit(1)
+    })
+}
 
-            cmd::run_printable(cmd::git::clone_cmd(&parsed_repo, &config))
+fn try_main(cli: Cli, config: Config) -> Result<(), String> {
+    match &cli.command {
+        Commands::Clone { repo } => {
+            let parsed_repo = repo.unwrap_or_else(|_| Ok(config.user.clone()))?;
+
+            cmd::run_printable(cmd::git::clone_cmd(&parsed_repo, &config));
+            Ok(())
         }
         Commands::Tmux { repo } => {
-            let parsed_repo = repo.unwrap_or_else(|name| {
-                cmd::find::owner(name, &config).unwrap_or_else(|error| {
-                    println!("error: {}", error);
-                    std::process::exit(1);
-                })
-            });
+            let parsed_repo = repo.unwrap_or_else(|name| cmd::find::owner(name, &config))?;
 
             if !cmd::tmux::session_exists(&parsed_repo) {
                 cmd::tmux::new_session(&parsed_repo, &config);
             }
 
-            cmd::run_printable(cmd::tmux::attach_cmd(&parsed_repo))
+            cmd::run_printable(cmd::tmux::attach_cmd(&parsed_repo));
+            Ok(())
         }
-    };
-
-    if !status.success() {
-        std::process::exit(status.code().unwrap());
     }
 }
 
