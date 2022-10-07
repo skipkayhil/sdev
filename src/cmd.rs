@@ -1,6 +1,9 @@
 use std::fmt;
 use std::process::{Command, ExitStatus};
 
+use crate::repo::MaybeOwnedRepo;
+use crate::Config;
+
 macro_rules! println_shell {
     ($($arg:tt)*) => ({
         println!("\x1b[90m$ {}\x1b[0m", format_args!($($arg)*));
@@ -35,6 +38,24 @@ impl fmt::Display for PrintableCommand {
 
 pub fn run_printable(command: Command) -> ExitStatus {
     PrintableCommand { command }.run()
+}
+
+pub fn clone(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
+    let parsed_repo = repo_arg.unwrap_or_else(|_| Ok(config.user.clone()))?;
+
+    run_printable(git::clone_cmd(&parsed_repo, &config));
+    Ok(())
+}
+
+pub fn tmux(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
+    let parsed_repo = repo_arg.unwrap_or_else(|name| find::owner(name, &config))?;
+
+    if !tmux::session_exists(&parsed_repo) {
+        tmux::new_session(&parsed_repo, &config);
+    }
+
+    run_printable(tmux::attach_cmd(&parsed_repo));
+    Ok(())
 }
 
 pub mod find {

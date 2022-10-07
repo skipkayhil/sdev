@@ -42,22 +42,8 @@ fn main() {
 
 fn try_main(cli: Cli, config: Config) -> Result<(), String> {
     match &cli.command {
-        Commands::Clone { repo } => {
-            let parsed_repo = repo.unwrap_or_else(|_| Ok(config.user.clone()))?;
-
-            cmd::run_printable(cmd::git::clone_cmd(&parsed_repo, &config));
-            Ok(())
-        }
-        Commands::Tmux { repo } => {
-            let parsed_repo = repo.unwrap_or_else(|name| cmd::find::owner(name, &config))?;
-
-            if !cmd::tmux::session_exists(&parsed_repo) {
-                cmd::tmux::new_session(&parsed_repo, &config);
-            }
-
-            cmd::run_printable(cmd::tmux::attach_cmd(&parsed_repo));
-            Ok(())
-        }
+        Commands::Clone { repo } => cmd::clone(repo, config),
+        Commands::Tmux { repo } => cmd::tmux(repo, config),
     }
 }
 
