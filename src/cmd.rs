@@ -1,5 +1,5 @@
 use std::fmt;
-use std::process::{Command, ExitStatus};
+use std::process::Command;
 
 use crate::repo::MaybeOwnedRepo;
 use crate::Config;
@@ -25,12 +25,16 @@ struct PrintableCommand {
 }
 
 impl PrintableCommand {
-    fn run(&mut self) -> ExitStatus {
+    fn run(&mut self) -> Result<(), String> {
         println_shell!("{}\n", self);
 
-        self.command
-            .status()
-            .unwrap_or_else(|_| panic!("failed to execute {:?}", self.command.get_program()))
+        match self.command.status() {
+            Ok(_) => Ok(()),
+            Err(_) => Err(format!(
+                "failed to execute {:?}",
+                self.command.get_program()
+            )),
+        }
     }
 }
 
@@ -46,7 +50,7 @@ impl fmt::Display for PrintableCommand {
     }
 }
 
-pub fn run_printable(command: Command) -> ExitStatus {
+pub fn run_printable(command: Command) -> Result<(), String> {
     PrintableCommand { command }.run()
 }
 
@@ -60,8 +64,7 @@ pub fn clone(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
         config.root.join(owner).join(repo_arg.name()),
     );
 
-    run_printable(command);
-    Ok(())
+    run_printable(command)
 }
 
 pub fn tmux(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
@@ -71,8 +74,7 @@ pub fn tmux(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
         tmux::new_session(&parsed_repo, &config);
     }
 
-    run_printable(tmux::attach_cmd(&parsed_repo));
-    Ok(())
+    run_printable(tmux::attach_cmd(&parsed_repo))
 }
 
 pub mod find {
