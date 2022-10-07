@@ -14,10 +14,6 @@ impl Repo {
     pub fn to_absolute_path(&self, root: &Path) -> PathBuf {
         root.join(&self.owner).join(&self.name)
     }
-
-    pub fn to_url(&self) -> String {
-        format!("git@github.com:{}/{}.git", &self.owner, &self.name)
-    }
 }
 
 #[test]
@@ -32,15 +28,6 @@ fn test_to_absolute_path() {
     )
 }
 
-#[test]
-fn test_to_url() {
-    let repo = Repo {
-        owner: "skipkayhil".to_string(),
-        name: "dotfiles".to_string(),
-    };
-    assert_eq!(repo.to_url(), "git@github.com:skipkayhil/dotfiles.git")
-}
-
 #[derive(Clone)]
 pub struct MaybeOwnedRepo {
     owner: Option<String>,
@@ -48,6 +35,14 @@ pub struct MaybeOwnedRepo {
 }
 
 impl MaybeOwnedRepo {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn owner(&self) -> &Option<String> {
+        &self.owner
+    }
+
     pub fn unwrap_or_else(
         &self,
         fallback: impl Fn(&str) -> Result<String, String>,

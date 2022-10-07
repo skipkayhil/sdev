@@ -10,6 +10,16 @@ macro_rules! println_shell {
     })
 }
 
+macro_rules! shell {
+    ($bin:expr, $($x:expr),* $(,)?) => {
+        {
+            let mut cmd = Command::new($bin);
+            $(cmd.arg($x);)*
+            cmd
+        }
+    };
+}
+
 struct PrintableCommand {
     command: Command,
 }
@@ -41,9 +51,16 @@ pub fn run_printable(command: Command) -> ExitStatus {
 }
 
 pub fn clone(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
-    let parsed_repo = repo_arg.unwrap_or_else(|_| Ok(config.user.clone()))?;
+    let owner = repo_arg.owner().as_ref().unwrap_or(&config.user);
 
-    run_printable(git::clone_cmd(&parsed_repo, &config));
+    let command = shell!(
+        "git",
+        "clone",
+        format!("git@github.com:{}/{}.git", owner, repo_arg.name()),
+        config.root.join(owner).join(repo_arg.name()),
+    );
+
+    run_printable(command);
     Ok(())
 }
 
@@ -93,24 +110,6 @@ pub mod find {
                 owners.join(",")
             )),
         }
-    }
-}
-
-pub mod git {
-    use std::process::Command;
-
-    use crate::config::Config;
-    use crate::repo::Repo;
-
-    pub fn clone_cmd(repo: &Repo, config: &Config) -> Command {
-        let mut command = Command::new("git");
-
-        command
-            .arg("clone")
-            .arg(repo.to_url())
-            .arg(repo.to_absolute_path(&config.root));
-
-        command
     }
 }
 
