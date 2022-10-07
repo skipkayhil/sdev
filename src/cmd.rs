@@ -30,11 +30,12 @@ impl PrintableCommand {
 
         match self.command.status() {
             Ok(_) => Ok(()),
-            Err(_) => Err(format!(
-                "failed to execute {:?}",
-                self.command.get_program()
-            )),
+            Err(_) => Err(self.error_message()),
         }
+    }
+
+    fn error_message(&self) -> String {
+        format!("failed to execute `{}`", &self)
     }
 }
 
@@ -71,12 +72,7 @@ pub fn tmux(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
     let mut command = shell!("tmux", "has", "-t", format!("={}", repo_arg.name()));
 
     match command.output() {
-        Err(_) => {
-            return Err(format!(
-                "failed to execute `{}`",
-                PrintableCommand { command }
-            ))
-        }
+        Err(_) => return Err(PrintableCommand { command }.error_message()),
         Ok(output) if !output.status.success() => tmux::create_session(repo_arg, &config)?,
         _ => {}
     }
@@ -145,14 +141,10 @@ pub mod tmux {
             &config.root.join(owner).join(repo_arg.name()),
         );
 
-        if command.output().is_err() {
-            return Err(format!(
-                "failed to execute `{}`",
-                PrintableCommand { command }
-            ));
+        match command.output() {
+            Err(_) => Err(PrintableCommand { command }.error_message()),
+            _ => Ok(()),
         }
-
-        Ok(())
     }
 
     pub fn attach_cmd(session_name: &str) -> Command {
