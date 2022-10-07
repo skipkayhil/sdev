@@ -68,13 +68,20 @@ pub fn clone(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
 }
 
 pub fn tmux(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
-    let parsed_repo = repo_arg.unwrap_or_else(|name| find::owner(name, &config))?;
+    let mut command = shell!("tmux", "has", "-t", format!("={}", repo_arg.name()));
 
-    if !tmux::session_exists(&parsed_repo) {
-        tmux::new_session(&parsed_repo, &config);
+    match command.output() {
+        Err(_) => {
+            return Err(format!(
+                "failed to execute `{}`",
+                PrintableCommand { command }
+            ))
+        }
+        Ok(output) if !output.status.success() => tmux::create_session(repo_arg, &config)?,
+        _ => {}
     }
 
-    run_printable(tmux::attach_cmd(&parsed_repo))
+    run_printable(tmux::attach_cmd(repo_arg.name()))
 }
 
 pub mod find {
@@ -118,17 +125,43 @@ pub mod find {
 pub mod tmux {
     use std::process::Command;
 
+    use crate::cmd::{find, PrintableCommand};
     use crate::config::Config;
-    use crate::repo::Repo;
+    use crate::repo::MaybeOwnedRepo;
 
-    pub fn attach_cmd(repo: &Repo) -> Command {
+    pub fn create_session(repo_arg: &MaybeOwnedRepo, config: &Config) -> Result<(), String> {
+        let owner = match repo_arg.owner() {
+            Some(owner) => owner.clone(),
+            None => find::owner(repo_arg.name(), config)?,
+        };
+
+        let mut command = shell!(
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            repo_arg.name(),
+            "-c",
+            &config.root.join(owner).join(repo_arg.name()),
+        );
+
+        if command.output().is_err() {
+            return Err(format!(
+                "failed to execute `{}`",
+                PrintableCommand { command }
+            ));
+        }
+
+        Ok(())
+    }
+
+    pub fn attach_cmd(session_name: &str) -> Command {
         let attach_command = match std::env::var("TMUX") {
             Ok(_) => "switch-client",
             Err(_) => "attach-session",
         };
 
-        let tmux_friendly_name: String = repo
-            .name()
+        let tmux_friendly_name: String = session_name
             .chars()
             .map(|x| match x {
                 '.' => '_',
@@ -137,36 +170,6 @@ pub mod tmux {
             })
             .collect();
 
-        let mut command = Command::new("tmux");
-
-        command
-            .arg(attach_command)
-            .arg("-t")
-            .arg(tmux_friendly_name);
-
-        command
-    }
-
-    pub fn new_session(repo: &Repo, config: &Config) {
-        Command::new("tmux")
-            .arg("new-session")
-            .arg("-d")
-            .arg("-s")
-            .arg(repo.name())
-            .arg("-c")
-            .arg(repo.to_absolute_path(&config.root))
-            .output()
-            .expect("failed to execute 'tmux new-session'");
-    }
-
-    pub fn session_exists(repo: &Repo) -> bool {
-        Command::new("tmux")
-            .arg("has")
-            .arg("-t")
-            .arg(format!("={}", repo.name()))
-            .output()
-            .expect("failed to execute 'tmux has'")
-            .status
-            .success()
+        shell!("tmux", attach_command, "-t", tmux_friendly_name)
     }
 }

@@ -1,32 +1,4 @@
-use std::path::{Path, PathBuf};
 use std::str::FromStr;
-
-pub struct Repo {
-    owner: String,
-    name: String,
-}
-
-impl Repo {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn to_absolute_path(&self, root: &Path) -> PathBuf {
-        root.join(&self.owner).join(&self.name)
-    }
-}
-
-#[test]
-fn test_to_absolute_path() {
-    let repo = Repo {
-        owner: "skipkayhil".to_string(),
-        name: "dotfiles".to_string(),
-    };
-    assert_eq!(
-        repo.to_absolute_path(Path::new("/home/hartley/src/github.com")),
-        PathBuf::from("/home/hartley/src/github.com/skipkayhil/dotfiles")
-    )
-}
 
 #[derive(Clone)]
 pub struct MaybeOwnedRepo {
@@ -41,21 +13,6 @@ impl MaybeOwnedRepo {
 
     pub fn owner(&self) -> &Option<String> {
         &self.owner
-    }
-
-    pub fn unwrap_or_else(
-        &self,
-        fallback: impl Fn(&str) -> Result<String, String>,
-    ) -> Result<Repo, String> {
-        let owner = match &self.owner {
-            Some(owner) => owner.clone(),
-            None => fallback(&self.name)?,
-        };
-
-        Ok(Repo {
-            owner,
-            name: self.name.clone(),
-        })
     }
 }
 
