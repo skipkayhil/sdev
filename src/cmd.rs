@@ -108,9 +108,9 @@ pub mod find {
 
         match &owners[..] {
             [owner] => Ok(owner.to_string()),
-            [] => Err(format!("No repos named {} found", name)),
+            [] => Err(format!("No repos named \"{}\" found", name)),
             _ => Err(format!(
-                "Multiple owners found for {} repo: {}",
+                "Multiple owners found for \"{}\" repo: {}",
                 name,
                 owners.join(",")
             )),
@@ -131,6 +131,15 @@ pub mod tmux {
             None => find::owner(repo_arg.name(), config)?,
         };
 
+        let path = &config.root.join(owner).join(repo_arg.name());
+
+        if !path.is_dir() {
+            return Err(format!(
+                "{} does not exist. Has it been cloned?",
+                path.display()
+            ));
+        }
+
         let mut command = shell!(
             "tmux",
             "new-session",
@@ -138,7 +147,7 @@ pub mod tmux {
             "-s",
             repo_arg.name(),
             "-c",
-            &config.root.join(owner).join(repo_arg.name()),
+            path,
         );
 
         match command.output() {
