@@ -6,8 +6,8 @@ Like [minidev](https://github.com/burke/minidev), but WAY worse
 Usage: sdev <COMMAND>
 
 Commands:
-  clone  Clones a repo into a pre-determined folder
-  tmux   Attaches to a tmux session for the repo (and creates it if necessary)
+  clone  Clones a git repository into a standardized path
+  tmux   Attaches to a repo's tmux session (and creates it if necessary)
 
 Options:
   -h, --help     Print help information

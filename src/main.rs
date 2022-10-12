@@ -17,9 +17,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Clones a repo into a pre-determined folder
+    /// Clones a git repository into a standardized path
     Clone { repo: MaybeOwnedRepo },
-    /// Attaches to a tmux session for the repo (and creates it if necessary)
+    /// Attaches to a repo's tmux session (and creates it if necessary)
     #[command(alias("t"))]
     Tmux { repo: MaybeOwnedRepo },
 }
