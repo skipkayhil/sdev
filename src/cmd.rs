@@ -82,19 +82,10 @@ pub fn tmux(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
 
 pub mod find {
     use std::fs::DirEntry;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
-    use crate::config::Config;
-
-    pub fn repo(name: &str, config: &Config) -> Result<PathBuf, String> {
-        let owners_path = config.root.join(&config.user).join(name);
-
-        if owners_path.is_dir() {
-            return Ok(owners_path);
-        }
-
-        let owners: Vec<DirEntry> = config
-            .root
+    pub fn repo(name: &str, root: &Path) -> Result<PathBuf, String> {
+        let owners: Vec<DirEntry> = root
             .read_dir()
             .unwrap()
             .filter_map(|r| r.ok())
@@ -134,7 +125,15 @@ pub mod tmux {
 
                 path
             }
-            None => find::repo(repo_arg.name(), config)?,
+            None => {
+                let owners_path = config.root.join(&config.user).join(repo_arg.name());
+
+                if owners_path.is_dir() {
+                    owners_path
+                } else {
+                    find::repo(repo_arg.name(), &config.root)?
+                }
+            }
         };
 
         let mut command = shell!(
