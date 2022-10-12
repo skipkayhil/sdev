@@ -81,38 +81,33 @@ pub fn tmux(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
 }
 
 pub mod find {
+    use std::fs::DirEntry;
+    use std::path::PathBuf;
+
     use crate::config::Config;
 
-    pub fn owner(name: &str, config: &Config) -> Result<String, String> {
+    pub fn repo(name: &str, config: &Config) -> Result<PathBuf, String> {
         let owners_path = config.root.join(&config.user).join(name);
 
         if owners_path.is_dir() {
-            return Ok(config.user.to_string());
+            return Ok(owners_path);
         }
 
-        let owners: Vec<String> = config
+        let owners: Vec<DirEntry> = config
             .root
             .read_dir()
             .unwrap()
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                let entry_path = entry.path().join(name);
-
-                if entry_path.is_dir() {
-                    Some(entry.file_name().into_string().ok()?)
-                } else {
-                    None
-                }
-            })
+            .filter_map(|r| r.ok())
+            .filter(|dir_entry| dir_entry.path().join(name).is_dir())
             .collect();
 
         match &owners[..] {
-            [owner] => Ok(owner.to_string()),
+            [owner] => Ok(owner.path().join(name)),
             [] => Err(format!("No repos named \"{}\" found", name)),
             _ => Err(format!(
-                "Multiple owners found for \"{}\" repo: {}",
+                "Multiple owners found for \"{}\" repo: {:?}",
                 name,
-                owners.join(",")
+                owners.iter().map(|o| o.file_name()).collect::<Vec<_>>()
             )),
         }
     }
@@ -126,19 +121,21 @@ pub mod tmux {
     use crate::repo::MaybeOwnedRepo;
 
     pub fn create_session(repo_arg: &MaybeOwnedRepo, config: &Config) -> Result<(), String> {
-        let owner = match repo_arg.owner() {
-            Some(owner) => owner.clone(),
-            None => find::owner(repo_arg.name(), config)?,
+        let path = match repo_arg.owner() {
+            Some(owner) => {
+                let path = config.root.join(owner).join(repo_arg.name());
+
+                if !path.is_dir() {
+                    return Err(format!(
+                        "{} does not exist. Has it been cloned?",
+                        path.display()
+                    ));
+                }
+
+                path
+            }
+            None => find::repo(repo_arg.name(), config)?,
         };
-
-        let path = &config.root.join(owner).join(repo_arg.name());
-
-        if !path.is_dir() {
-            return Err(format!(
-                "{} does not exist. Has it been cloned?",
-                path.display()
-            ));
-        }
 
         let mut command = shell!(
             "tmux",
