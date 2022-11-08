@@ -112,27 +112,24 @@ pub mod tmux {
     use crate::repo::MaybeOwnedRepo;
 
     pub fn create_session(repo_arg: &MaybeOwnedRepo, config: &Config) -> Result<(), String> {
-        let path = match repo_arg.owner() {
-            Some(owner) => {
-                let path = config.root.join(owner).join(repo_arg.name());
+        let path = if let Some(owner) = repo_arg.owner() {
+            let path = config.root.join(owner).join(repo_arg.name());
 
-                if !path.is_dir() {
-                    return Err(format!(
-                        "{} does not exist. Has it been cloned?",
-                        path.display()
-                    ));
-                }
-
-                path
+            if !path.is_dir() {
+                return Err(format!(
+                    "{} does not exist. Has it been cloned?",
+                    path.display()
+                ));
             }
-            None => {
-                let owners_path = config.root.join(&config.user).join(repo_arg.name());
 
-                if owners_path.is_dir() {
-                    owners_path
-                } else {
-                    find::repo(repo_arg.name(), &config.root)?
-                }
+            path
+        } else {
+            let owners_path = config.root.join(&config.user).join(repo_arg.name());
+
+            if owners_path.is_dir() {
+                owners_path
+            } else {
+                find::repo(repo_arg.name(), &config.root)?
             }
         };
 
