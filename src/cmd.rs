@@ -1,7 +1,9 @@
 use std::fmt;
-use std::process::Command;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
 use crate::repo::MaybeOwnedRepo;
+use crate::repositories::git_repos::{FileSystemRepository, Repository};
 use crate::Config;
 
 macro_rules! println_shell {
@@ -68,79 +70,95 @@ pub fn clone(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
     run_printable(command)
 }
 
-pub fn tmux(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
-    let mut command = shell!("tmux", "has", "-t", format!("={}", repo_arg.name()));
+pub fn tmux(config: Config) -> Result<(), String> {
+    let repos = FileSystemRepository::new(config.root).fetch_all()?;
+
+    let Some(repo_path) = fuzzy_select(repos.iter().map(|repo| repo.path()).collect())? else {
+        return Ok(());
+    };
+
+    let repo = repos
+        .iter()
+        .find(|r| r.path() == repo_path)
+        .expect("fzf should return an existing repo");
+
+    let mut command = shell!("tmux", "has", "-t", format!("={}", repo.name()));
 
     match command.output() {
         Err(_) => return Err(PrintableCommand { command }.error_message()),
-        Ok(output) if !output.status.success() => tmux::create_session(repo_arg, &config)?,
+        Ok(output) if !output.status.success() => tmux::create_session(repo)?,
         _ => {}
     }
 
-    run_printable(tmux::attach_cmd(repo_arg.name()))
+    match tmux::attach_cmd(repo.name()).output() {
+        Err(_) => Err(PrintableCommand { command }.error_message()),
+        _ => Ok(()),
+    }
 }
 
-pub mod find {
-    use std::fs::DirEntry;
-    use std::path::{Path, PathBuf};
+pub enum FzfError {
+    IoError(std::io::Error),
+    PipeError,
+}
 
-    pub fn repo(name: &str, root: &Path) -> Result<PathBuf, String> {
-        let owners: Vec<DirEntry> = root
-            .read_dir()
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .filter(|dir_entry| dir_entry.path().join(name).is_dir())
-            .collect();
-
-        match &owners[..] {
-            [owner] => Ok(owner.path().join(name)),
-            [] => Err(format!("No repos named \"{}\" found", name)),
-            _ => Err(format!(
-                "Multiple owners found for \"{}\" repo: {:?}",
-                name,
-                owners.iter().map(|o| o.file_name()).collect::<Vec<_>>()
-            )),
+impl From<FzfError> for String {
+    fn from(e: FzfError) -> Self {
+        match e {
+            FzfError::IoError(io_e) => format!("error running fzf-tmux: {}", io_e),
+            FzfError::PipeError => "error communicating with fzf".to_string(),
         }
     }
+}
+
+impl From<std::io::Error> for FzfError {
+    fn from(e: std::io::Error) -> Self {
+        FzfError::IoError(e)
+    }
+}
+
+pub fn fuzzy_select<S>(options: Vec<S>) -> Result<Option<String>, FzfError>
+where
+    S: AsRef<str> + std::fmt::Display,
+{
+    let mut process = shell!("fzf-tmux", "-p")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    match process.stdin {
+        Some(ref mut stdin) => {
+            for option in options.iter() {
+                writeln!(stdin, "{}", option)?
+            }
+        }
+        None => return Err(FzfError::PipeError),
+    };
+
+    let output = process.wait_with_output()?;
+
+    let selected = output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string());
+
+    Ok(selected)
 }
 
 pub mod tmux {
     use std::process::Command;
 
-    use crate::cmd::{find, PrintableCommand};
-    use crate::config::Config;
-    use crate::repo::MaybeOwnedRepo;
+    use crate::cmd::PrintableCommand;
+    use crate::repo::GitRepo;
 
-    pub fn create_session(repo_arg: &MaybeOwnedRepo, config: &Config) -> Result<(), String> {
-        let path = if let Some(owner) = repo_arg.owner() {
-            let path = config.root.join(owner).join(repo_arg.name());
-
-            if !path.is_dir() {
-                return Err(format!(
-                    "{} does not exist. Has it been cloned?",
-                    path.display()
-                ));
-            }
-
-            path
-        } else {
-            let owners_path = config.root.join(&config.user).join(repo_arg.name());
-
-            if owners_path.is_dir() {
-                owners_path
-            } else {
-                find::repo(repo_arg.name(), &config.root)?
-            }
-        };
-
+    pub fn create_session(repo: &GitRepo) -> Result<(), String> {
         let mut command = shell!(
             "tmux",
             "new-session",
             "-d",
             "-s",
-            repo_arg.name(),
+            repo.name(),
             "-c",
-            path,
+            repo.path(),
         );
 
         match command.output() {

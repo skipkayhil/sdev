@@ -4,6 +4,7 @@ use std::path::Path;
 mod cmd;
 mod config;
 mod repo;
+mod repositories;
 
 use crate::config::Config;
 use crate::repo::MaybeOwnedRepo;
@@ -19,9 +20,9 @@ struct Cli {
 enum Commands {
     /// Clones a git repository into a standardized path
     Clone { repo: MaybeOwnedRepo },
-    /// Attaches to a repo's tmux session (and creates it if necessary)
+    /// Fuzzy attach to a repo's tmux session (and creates it if necessary)
     #[command(alias("t"))]
-    Tmux { repo: MaybeOwnedRepo },
+    Tmux,
 }
 
 fn main() {
@@ -43,7 +44,7 @@ fn main() {
 fn try_main(cli: Cli, config: Config) -> Result<(), String> {
     match &cli.command {
         Commands::Clone { repo } => cmd::clone(repo, config),
-        Commands::Tmux { repo } => cmd::tmux(repo, config),
+        Commands::Tmux => cmd::tmux(config),
     }
 }
 
