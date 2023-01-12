@@ -90,7 +90,7 @@ pub fn tmux(config: Config) -> Result<(), String> {
         _ => {}
     }
 
-    match tmux::attach_cmd(repo.name()).output() {
+    match tmux::attach_cmd(repo.name()).status() {
         Err(_) => Err(PrintableCommand { command }.error_message()),
         _ => Ok(()),
     }
