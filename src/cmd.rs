@@ -1,6 +1,7 @@
 use std::fmt;
+use std::io;
 use std::io::Write;
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 
 use crate::repo::MaybeOwnedRepo;
 use crate::repositories::git_repos::{FileSystemRepository, Repository};
@@ -15,29 +16,44 @@ macro_rules! println_shell {
 macro_rules! shell {
     ($bin:expr, $($x:expr),* $(,)?) => {
         {
-            let mut cmd = Command::new($bin);
-            $(cmd.arg($x);)*
-            cmd
+            let mut command = Command::new($bin);
+            $(command.arg($x);)*
+            PrintableCommand { command }
         }
     };
 }
 
-struct PrintableCommand {
+enum CmdError {
+    IoError(String, io::Error),
+}
+
+impl From<CmdError> for String {
+    fn from(e: CmdError) -> Self {
+        match e {
+            CmdError::IoError(cmd, io_e) => format!("failed to execute `{}`: {}", cmd, io_e),
+        }
+    }
+}
+
+pub struct PrintableCommand {
     command: Command,
 }
 
 impl PrintableCommand {
-    fn run(&mut self) -> Result<(), String> {
+    fn print_and_run(&mut self) -> Result<(), CmdError> {
         println_shell!("{}\n", self);
 
-        match self.command.status() {
-            Ok(_) => Ok(()),
-            Err(_) => Err(self.error_message()),
-        }
+        self.run()
     }
 
-    fn error_message(&self) -> String {
-        format!("failed to execute `{}`", &self)
+    fn run(&mut self) -> Result<(), CmdError> {
+        self.status().map(|_| {})
+    }
+
+    fn status(&mut self) -> Result<ExitStatus, CmdError> {
+        self.command
+            .status()
+            .map_err(|e| CmdError::IoError(self.to_string(), e))
     }
 }
 
@@ -53,21 +69,14 @@ impl fmt::Display for PrintableCommand {
     }
 }
 
-pub fn run_printable(command: Command) -> Result<(), String> {
-    PrintableCommand { command }.run()
-}
-
 pub fn clone(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
     let owner = repo_arg.owner().as_ref().unwrap_or(&config.user);
+    let url = format!("git@github.com:{}/{}.git", owner, repo_arg.name());
+    let path = config.root.join(owner).join(repo_arg.name());
 
-    let command = shell!(
-        "git",
-        "clone",
-        format!("git@github.com:{}/{}.git", owner, repo_arg.name()),
-        config.root.join(owner).join(repo_arg.name()),
-    );
-
-    run_printable(command)
+    shell!("git", "clone", url, path)
+        .print_and_run()
+        .map_err(From::from)
 }
 
 pub fn tmux(config: Config) -> Result<(), String> {
@@ -82,18 +91,14 @@ pub fn tmux(config: Config) -> Result<(), String> {
         .find(|r| r.path() == repo_path)
         .expect("fzf should return an existing repo");
 
-    let mut command = shell!("tmux", "has", "-t", format!("={}", repo.name()));
+    let mut has_command = shell!("tmux", "has", "-t", format!("={}", repo.name()));
 
-    match command.output() {
-        Err(_) => return Err(PrintableCommand { command }.error_message()),
-        Ok(output) if !output.status.success() => tmux::create_session(repo)?,
-        _ => {}
-    }
+    if !has_command.status()?.success() {
+        let (name, path) = (repo.name(), repo.path());
+        shell!("tmux", "new-session", "-d", "-s", name, "-c", path).run()?;
+    };
 
-    match tmux::attach_cmd(repo.name()).status() {
-        Err(_) => Err(PrintableCommand { command }.error_message()),
-        _ => Ok(()),
-    }
+    tmux::attach_cmd(repo.name()).run().map_err(From::from)
 }
 
 pub enum FzfError {
@@ -120,7 +125,8 @@ pub fn fuzzy_select<S>(options: Vec<S>) -> Result<Option<String>, FzfError>
 where
     S: AsRef<str> + std::fmt::Display,
 {
-    let mut process = shell!("fzf-tmux", "-p")
+    let mut process = Command::new("fzf-tmux")
+        .arg("-p")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;
@@ -148,30 +154,10 @@ pub mod tmux {
     use std::process::Command;
 
     use crate::cmd::PrintableCommand;
-    use crate::repo::GitRepo;
 
-    pub fn create_session(repo: &GitRepo) -> Result<(), String> {
-        let mut command = shell!(
-            "tmux",
-            "new-session",
-            "-d",
-            "-s",
-            repo.name(),
-            "-c",
-            repo.path(),
-        );
-
-        match command.output() {
-            Err(_) => Err(PrintableCommand { command }.error_message()),
-            _ => Ok(()),
-        }
-    }
-
-    pub fn attach_cmd(session_name: &str) -> Command {
-        let attach_command = match std::env::var("TMUX") {
-            Ok(_) => "switch-client",
-            Err(_) => "attach-session",
-        };
+    pub fn attach_cmd(session_name: &str) -> PrintableCommand {
+        let attach_command =
+            std::env::var("TMUX").map_or_else(|_| "attach-session", |_| "switch-client");
 
         let tmux_friendly_name: String = session_name
             .chars()
