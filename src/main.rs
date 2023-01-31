@@ -36,7 +36,7 @@ fn main() {
     };
 
     try_main(cli, config).unwrap_or_else(|message| {
-        println!("error: {}", message);
+        println!("error: {message}");
         std::process::exit(1)
     })
 }

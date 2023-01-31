@@ -12,7 +12,7 @@ pub mod git_repos {
     impl From<FetchAllError> for String {
         fn from(value: FetchAllError) -> Self {
             match value {
-                FetchAllError::IoError(e) => format!("error fetching git repos: {}", e),
+                FetchAllError::IoError(e) => format!("error fetching git repos: {e}"),
             }
         }
     }

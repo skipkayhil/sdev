@@ -30,7 +30,7 @@ enum CmdError {
 impl From<CmdError> for String {
     fn from(e: CmdError) -> Self {
         match e {
-            CmdError::IoError(cmd, io_e) => format!("failed to execute `{}`: {}", cmd, io_e),
+            CmdError::IoError(cmd, io_e) => format!("failed to execute `{cmd}`: {io_e}"),
         }
     }
 }
@@ -109,7 +109,7 @@ pub enum FzfError {
 impl From<FzfError> for String {
     fn from(e: FzfError) -> Self {
         match e {
-            FzfError::IoError(io_e) => format!("error running fzf-tmux: {}", io_e),
+            FzfError::IoError(io_e) => format!("error running fzf-tmux: {io_e}"),
             FzfError::PipeError => "error communicating with fzf".to_string(),
         }
     }
@@ -134,7 +134,7 @@ where
     match process.stdin {
         Some(ref mut stdin) => {
             for option in options.iter() {
-                writeln!(stdin, "{}", option)?
+                writeln!(stdin, "{option}")?
             }
         }
         None => return Err(FzfError::PipeError),

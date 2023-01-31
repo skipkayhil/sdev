@@ -78,7 +78,7 @@ impl FromStr for MaybeOwnedRepo {
                 owner: Some(owner.to_string()),
                 name: name.to_string(),
             }),
-            _ => Err(format!("Invalid repo: {}", s)),
+            _ => Err(format!("Invalid repo: {s}")),
         }
     }
 }
