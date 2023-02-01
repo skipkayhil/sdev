@@ -3,10 +3,6 @@ use std::io;
 use std::io::Write;
 use std::process::{Command, ExitStatus, Output, Stdio};
 
-use crate::repo::MaybeOwnedRepo;
-use crate::repositories::git_repos::{FileSystemRepository, Repository};
-use crate::Config;
-
 macro_rules! println_shell {
     ($($arg:tt)*) => ({
         println!("\x1b[90m$ {}\x1b[0m", format_args!($($arg)*));
@@ -22,6 +18,9 @@ macro_rules! shell {
         }
     };
 }
+
+pub mod clone;
+pub mod tmux;
 
 enum CmdError {
     IoError(String, io::Error),
@@ -75,38 +74,6 @@ impl fmt::Display for PrintableCommand {
     }
 }
 
-pub fn clone(repo_arg: &MaybeOwnedRepo, config: Config) -> Result<(), String> {
-    let owner = repo_arg.owner().as_ref().unwrap_or(&config.user);
-    let url = format!("git@github.com:{}/{}.git", owner, repo_arg.name());
-    let path = config.root.join(owner).join(repo_arg.name());
-
-    shell!("git", "clone", url, path)
-        .print_and_run()
-        .map_err(From::from)
-}
-
-pub fn tmux(config: Config) -> Result<(), String> {
-    let repos = FileSystemRepository::new(config.root).fetch_all()?;
-
-    let Some(repo_path) = fuzzy_select(repos.iter().map(|repo| repo.path()).collect())? else {
-        return Ok(());
-    };
-
-    let repo = repos
-        .iter()
-        .find(|r| r.path() == repo_path)
-        .expect("fzf should return an existing repo");
-
-    let has_output = shell!("tmux", "has", "-t", format!("={}", repo.name())).output()?;
-
-    if !has_output.status.success() {
-        let (name, path) = (repo.name(), repo.path());
-        shell!("tmux", "new-session", "-d", "-s", name, "-c", path).output()?;
-    };
-
-    tmux::attach_cmd(repo.name()).run().map_err(From::from)
-}
-
 pub enum FzfError {
     IoError(std::io::Error),
     PipeError,
@@ -154,26 +121,4 @@ where
         .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string());
 
     Ok(selected)
-}
-
-pub mod tmux {
-    use std::process::Command;
-
-    use crate::cmd::PrintableCommand;
-
-    pub fn attach_cmd(session_name: &str) -> PrintableCommand {
-        let attach_command =
-            std::env::var("TMUX").map_or_else(|_| "attach-session", |_| "switch-client");
-
-        let tmux_friendly_name: String = session_name
-            .chars()
-            .map(|x| match x {
-                '.' => '_',
-                ':' => '_',
-                _ => x,
-            })
-            .collect();
-
-        shell!("tmux", attach_command, "-t", tmux_friendly_name)
-    }
 }

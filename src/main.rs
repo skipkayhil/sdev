@@ -43,8 +43,8 @@ fn main() {
 
 fn try_main(cli: Cli, config: Config) -> Result<(), String> {
     match &cli.command {
-        Commands::Clone { repo } => cmd::clone(repo, config),
-        Commands::Tmux => cmd::tmux(config),
+        Commands::Clone { repo } => cmd::clone::run(repo, config),
+        Commands::Tmux => cmd::tmux::run(config),
     }
 }
 
