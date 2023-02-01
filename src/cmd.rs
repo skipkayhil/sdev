@@ -1,7 +1,7 @@
 use std::fmt;
 use std::io;
 use std::io::Write;
-use std::process::{Command, ExitStatus, Stdio};
+use std::process::{Command, ExitStatus, Output, Stdio};
 
 use crate::repo::MaybeOwnedRepo;
 use crate::repositories::git_repos::{FileSystemRepository, Repository};
@@ -44,6 +44,12 @@ impl PrintableCommand {
         println_shell!("{}\n", self);
 
         self.run()
+    }
+
+    fn output(&mut self) -> Result<Output, CmdError> {
+        self.command
+            .output()
+            .map_err(|e| CmdError::IoError(self.to_string(), e))
     }
 
     fn run(&mut self) -> Result<(), CmdError> {
@@ -91,11 +97,11 @@ pub fn tmux(config: Config) -> Result<(), String> {
         .find(|r| r.path() == repo_path)
         .expect("fzf should return an existing repo");
 
-    let mut has_command = shell!("tmux", "has", "-t", format!("={}", repo.name()));
+    let has_output = shell!("tmux", "has", "-t", format!("={}", repo.name())).output()?;
 
-    if !has_command.status()?.success() {
+    if !has_output.status.success() {
         let (name, path) = (repo.name(), repo.path());
-        shell!("tmux", "new-session", "-d", "-s", name, "-c", path).run()?;
+        shell!("tmux", "new-session", "-d", "-s", name, "-c", path).output()?;
     };
 
     tmux::attach_cmd(repo.name()).run().map_err(From::from)
