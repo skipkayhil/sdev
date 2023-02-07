@@ -94,9 +94,10 @@ impl From<std::io::Error> for FzfError {
     }
 }
 
-pub fn fuzzy_select<S>(options: Vec<S>) -> Result<Option<String>, FzfError>
+pub fn fuzzy_select<S, I>(options: I) -> Result<Option<String>, FzfError>
 where
     S: AsRef<str> + std::fmt::Display,
+    I: IntoIterator<Item = S>,
 {
     let mut process = Command::new("fzf-tmux")
         .arg("-p")
@@ -106,7 +107,7 @@ where
 
     match process.stdin {
         Some(ref mut stdin) => {
-            for option in options.iter() {
+            for option in options.into_iter() {
                 writeln!(stdin, "{option}")?
             }
         }

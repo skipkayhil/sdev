@@ -1,20 +1,15 @@
+use std::path::PathBuf;
 use std::process::Command;
 
 use crate::cmd::{fuzzy_select, PrintableCommand};
-use crate::repositories::git_repos::{FileSystemRepository, Repository};
+use crate::repo::GitRepo;
+use crate::repositories::git_repos::{CachingRepository, FileSystemRepository, Repository};
 use crate::Config;
 
 pub fn run(config: Config) -> Result<(), String> {
-    let repos = FileSystemRepository::new(config.root).fetch_all()?;
-
-    let Some(repo_path) = fuzzy_select(repos.iter().map(|repo| repo.path()).collect())? else {
+    let Some(repo) = fuzzy_select_repository(config.root)? else {
         return Ok(());
     };
-
-    let repo = repos
-        .iter()
-        .find(|r| r.path() == repo_path)
-        .expect("fzf should return an existing repo");
 
     let has_output = shell!("tmux", "has", "-t", format!("={}", repo.name())).output()?;
 
@@ -40,4 +35,13 @@ fn attach_cmd(session_name: &str) -> PrintableCommand {
         .collect();
 
     shell!("tmux", attach_command, "-t", tmux_friendly_name)
+}
+
+fn fuzzy_select_repository(root: PathBuf) -> Result<Option<GitRepo>, String> {
+    let mut repository = CachingRepository::new(FileSystemRepository::new(root));
+
+    let all_paths = repository.fetch_all()?;
+    let maybe_path = fuzzy_select(all_paths.iter().map(|repo| repo.path()))?;
+
+    Ok(maybe_path.and_then(|path| repository.fetch_one_from_cache(&path)))
 }

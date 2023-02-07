@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+#[derive(Clone)]
 pub struct GitRepo {
     path: String,
     name: String,
