@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 pub struct Config {
-    pub user: String,
+    pub host: String,
     pub root: PathBuf,
+    pub user: String,
 }

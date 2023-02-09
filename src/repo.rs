@@ -1,4 +1,6 @@
-use std::path::{Path, PathBuf};
+use url::Url;
+
+use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
 #[derive(Clone)]
@@ -49,51 +51,76 @@ impl TryFrom<PathBuf> for GitRepo {
 }
 
 #[derive(Clone)]
-pub struct MaybeOwnedRepo {
-    owner: Option<String>,
-    name: String,
+pub enum GitRepoSource {
+    Name(String),
+    Path(String),
+    Url(Url),
 }
 
-impl MaybeOwnedRepo {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn owner(&self) -> &Option<String> {
-        &self.owner
-    }
-}
-
-impl FromStr for MaybeOwnedRepo {
+impl FromStr for GitRepoSource {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split('/').collect();
-
-        match parts[..] {
-            [name] => Ok(Self {
-                owner: None,
-                name: name.to_string(),
-            }),
-            [owner, name] => Ok(Self {
-                owner: Some(owner.to_string()),
-                name: name.to_string(),
-            }),
-            _ => Err(format!("Invalid repo: {s}")),
+        if let Ok(url) = Url::parse(s) {
+            return Ok(GitRepoSource::Url(url));
         }
+
+        for component in Path::new(s).components() {
+            let Component::Normal(..) = component else {
+                return Err(format!("invalid repo: {s}"));
+            };
+        }
+
+        let source = if s.contains('/') {
+            GitRepoSource::Path(s.to_string())
+        } else {
+            GitRepoSource::Name(s.to_string())
+        };
+
+        Ok(source)
     }
 }
 
-#[test]
-fn parses_name_only() {
-    let repo: MaybeOwnedRepo = "friday".parse().unwrap();
-    assert_eq!(None, repo.owner);
-    assert_eq!("friday", repo.name);
-}
+#[cfg(test)]
+mod git_repo_source_tests {
+    use super::GitRepoSource;
 
-#[test]
-fn parses_name_and_owner() {
-    let repo: MaybeOwnedRepo = "rails/rails".parse().unwrap();
-    assert_eq!("rails", repo.owner.unwrap());
-    assert_eq!("rails", repo.name);
+    #[test]
+    fn parse_name() {
+        let repo: GitRepoSource = "friday".parse().unwrap();
+
+        assert!(matches!(repo, GitRepoSource::Name(r) if r == "friday".to_string()));
+    }
+
+    #[test]
+    fn parse_short_path() {
+        let repo: GitRepoSource = "rails/rails".parse().unwrap();
+
+        assert!(matches!(repo, GitRepoSource::Path(r) if r == "rails/rails".to_string()));
+    }
+
+    #[test]
+    fn errors_on_absolute_path() {
+        let result = "/opt".parse::<GitRepoSource>();
+
+        assert!(result.is_err());
+        assert_eq!("invalid repo: /opt", result.err().unwrap());
+    }
+
+    #[test]
+    fn errors_on_path_traversal() {
+        let result = "../evil".parse::<GitRepoSource>();
+
+        assert!(result.is_err());
+        assert_eq!("invalid repo: ../evil", result.err().unwrap());
+    }
+
+    #[test]
+    fn parse_http_url() {
+        let repo: GitRepoSource = "https://github.com/skipkayhil/sdev".parse().unwrap();
+
+        assert!(
+            matches!(repo, GitRepoSource::Url(u) if u.as_str() == "https://github.com/skipkayhil/sdev".to_string())
+        );
+    }
 }
