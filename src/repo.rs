@@ -1,4 +1,5 @@
-use url::Url;
+use bstr::ByteSlice;
+use gix_url::{Scheme, Url};
 
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
@@ -54,30 +55,58 @@ impl TryFrom<PathBuf> for GitRepo {
 pub enum GitRepoSource {
     Name(String),
     Path(String),
-    Url(Url),
+    Url {
+        url: String,
+        host: String,
+        path: PathBuf,
+    },
 }
 
 impl FromStr for GitRepoSource {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(url) = Url::parse(s) {
-            return Ok(GitRepoSource::Url(url));
+        let url = Url::try_from(s).map_err(|e| e.to_string())?;
+
+        let path = url.path.to_path().map_err(|e| e.to_string())?;
+
+        match url.scheme {
+            Scheme::File => {
+                for component in path.components() {
+                    let Component::Normal(..) = component else {
+                        return Err(format!("invalid repo: {s}"));
+                    };
+                }
+
+                if s.contains('/') {
+                    Ok(GitRepoSource::Path(s.into()))
+                } else {
+                    Ok(GitRepoSource::Name(s.into()))
+                }
+            }
+            _ => {
+                let host = url.host().ok_or("invalid host for: {s}")?;
+                let relative_path = {
+                    let mut buffer = PathBuf::new();
+
+                    for component in path.with_extension("").components() {
+                        match component {
+                            Component::RootDir => (),
+                            Component::Normal(..) => buffer.push(component),
+                            _ => return Err(format!("invalid repo: {s}")),
+                        };
+                    }
+
+                    buffer
+                };
+
+                Ok(GitRepoSource::Url {
+                    url: s.to_string(),
+                    host: host.to_string(),
+                    path: relative_path,
+                })
+            }
         }
-
-        for component in Path::new(s).components() {
-            let Component::Normal(..) = component else {
-                return Err(format!("invalid repo: {s}"));
-            };
-        }
-
-        let source = if s.contains('/') {
-            GitRepoSource::Path(s.to_string())
-        } else {
-            GitRepoSource::Name(s.to_string())
-        };
-
-        Ok(source)
     }
 }
 
@@ -120,7 +149,18 @@ mod git_repo_source_tests {
         let repo: GitRepoSource = "https://github.com/skipkayhil/sdev".parse().unwrap();
 
         assert!(
-            matches!(repo, GitRepoSource::Url(u) if u.as_str() == "https://github.com/skipkayhil/sdev".to_string())
+            matches!(repo, GitRepoSource::Url { url, .. } if url.as_str() == "https://github.com/skipkayhil/sdev".to_string())
+        );
+    }
+
+    #[test]
+    fn errors_on_url_path_traversal() {
+        let result = "git@github.com:../evil.git".parse::<GitRepoSource>();
+
+        assert!(result.is_err());
+        assert_eq!(
+            "invalid repo: git@github.com:../evil.git",
+            result.err().unwrap()
         );
     }
 }
