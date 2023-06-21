@@ -1,18 +1,98 @@
 use bstr::ByteSlice;
 use gix_url::{Scheme, Url};
 
+use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
 #[derive(Clone)]
+enum GitHost {
+    Github,
+    Other,
+}
+
+impl From<&OsStr> for GitHost {
+    fn from(value: &OsStr) -> Self {
+        if value == "github.com" {
+            Self::Github
+        } else {
+            Self::Other
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct GitRepo {
-    path: String,
+    host: GitHost,
     name: String,
+    path: String,
+}
+
+pub enum TryFromAbsoluteError {
+    InvalidDir,
+    NotInRoot,
+    TryFromFsError(TryFromFsError),
+}
+
+pub enum TryFromFsError {
+    Encoding,
+    NotARepo(PathBuf),
 }
 
 impl GitRepo {
-    fn new(path: String, name: String) -> Self {
-        Self { path, name }
+    pub fn try_from_absolute(
+        path: PathBuf,
+        root: &PathBuf,
+    ) -> Result<GitRepo, TryFromAbsoluteError> {
+        let host = {
+            let Ok(relative_path) = path.strip_prefix(root) else {
+                return Err(TryFromAbsoluteError::NotInRoot)
+            };
+
+            let maybe_host = relative_path.components().find_map(|c| match c {
+                Component::Normal(segment) => Some(segment),
+                _ => None,
+            });
+
+            let Some(host) = maybe_host else {
+                return Err(TryFromAbsoluteError::InvalidDir);
+            };
+
+            host
+        };
+
+        let Some(name) = path.file_name() else {
+            return Err(TryFromAbsoluteError::InvalidDir);
+        };
+
+        Self::try_from_fs(name, path.clone(), host)
+            .map_err(|e| TryFromAbsoluteError::TryFromFsError(e))
+    }
+
+    pub fn try_from_fs(
+        raw_name: &OsStr,
+        path: PathBuf,
+        host_domain: &OsStr,
+    ) -> Result<Self, TryFromFsError> {
+        if Path::new(&path).join(".git").read_dir().is_err() {
+            return Err(TryFromFsError::NotARepo(path));
+        }
+
+        let Some(name) = raw_name.to_str() else {
+            return Err(TryFromFsError::Encoding);
+        };
+
+        let path_as_os_string = path.into_os_string();
+        let path = match path_as_os_string.into_string() {
+            Ok(path) => path,
+            Err(_) => return Err(TryFromFsError::Encoding),
+        };
+
+        Ok(Self {
+            name: name.into(),
+            path,
+            host: host_domain.into(),
+        })
     }
 
     pub fn name(&self) -> &str {
@@ -21,33 +101,6 @@ impl GitRepo {
 
     pub fn path(&self) -> &str {
         &self.path
-    }
-}
-
-impl TryFrom<PathBuf> for GitRepo {
-    type Error = PathBuf;
-
-    fn try_from(value: PathBuf) -> Result<Self, PathBuf> {
-        let Some(raw_name) = value.file_name() else {
-            return Err(value);
-        };
-        let name = match raw_name.to_str() {
-            Some(name) => name.to_string(),
-            None => return Err(value),
-        };
-
-        let path_as_os_string = value.into_os_string();
-
-        let path = match path_as_os_string.into_string() {
-            Ok(path) => path,
-            Err(os_str) => return Err(os_str.into()),
-        };
-
-        if Path::new(&path).join(".git").read_dir().is_err() {
-            return Err(path.into());
-        }
-
-        Ok(Self::new(path, name))
     }
 }
 

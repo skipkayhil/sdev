@@ -3,7 +3,7 @@ pub mod git_repos {
     use std::io;
     use std::path::PathBuf;
 
-    use crate::repo::GitRepo;
+    use crate::repo::{GitRepo, TryFromFsError};
 
     pub enum FetchAllError {
         IoError(io::Error),
@@ -60,20 +60,30 @@ pub mod git_repos {
 
     impl Repository for FileSystemRepository {
         fn fetch_all(&mut self) -> Result<Vec<GitRepo>, FetchAllError> {
-            let root_entries = self.root.read_dir()?.filter_map(|dir| dir.ok());
+            let host_entries = self.root.read_dir()?.filter_map(|dir| dir.ok());
 
-            let mut queue = VecDeque::from_iter(root_entries);
+            let mut queue = VecDeque::new();
             let mut repos = Vec::new();
 
-            while let Some(dir_entry) = queue.pop_front() {
-                let path = dir_entry.path();
+            for host_entry in host_entries {
+                let host = host_entry.file_name();
 
-                match GitRepo::try_from(path) {
-                    Ok(repo) => repos.push(repo),
-                    Err(err) => {
-                        if let Ok(dir_iter) = err.read_dir() {
-                            queue.extend(dir_iter.filter_map(|dir| dir.ok()));
+                if let Ok(repo_iter) = host_entry.path().read_dir() {
+                    queue.extend(repo_iter.filter_map(|dir| dir.ok()))
+                }
+
+                while let Some(dir_entry) = queue.pop_front() {
+                    let name = dir_entry.file_name();
+                    let path = dir_entry.path();
+
+                    match GitRepo::try_from_fs(&name, path, &host) {
+                        Ok(repo) => repos.push(repo),
+                        Err(TryFromFsError::NotARepo(folder)) => {
+                            if let Ok(dir_iter) = folder.read_dir() {
+                                queue.extend(dir_iter.filter_map(|dir| dir.ok()));
+                            }
                         }
+                        _ => (),
                     }
                 }
             }
@@ -82,7 +92,9 @@ pub mod git_repos {
         }
 
         fn fetch_one(&mut self, path: String) -> Result<GitRepo, FetchOneError> {
-            GitRepo::try_from(PathBuf::from(path)).map_err(FetchOneError::UnknownRepo)
+            let buffer = PathBuf::from(path);
+            GitRepo::try_from_absolute(buffer.clone(), &self.root)
+                .map_err(|_| FetchOneError::UnknownRepo(buffer))
         }
     }
 
