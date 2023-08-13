@@ -1,4 +1,5 @@
 mod clone;
+pub mod tmux;
 
 pub use clone::Clone;
 

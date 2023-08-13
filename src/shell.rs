@@ -1,5 +1,5 @@
 use std::fmt;
-use std::process::{Command, ExitStatus};
+use std::process::{Command, ExitStatus, Output};
 
 macro_rules! println_shell {
     ($($arg:tt)*) => ({
@@ -26,6 +26,14 @@ impl Shell {
         Shell(command)
     }
 
+    pub fn output(&mut self, print: bool) -> Result<Output, ShellError> {
+        if print {
+            println_shell!("{}\n", self);
+        }
+
+        self.0.output().map_err(|_| ShellError::IoError)
+    }
+
     pub fn run(&mut self, print: bool) -> Result<(), ShellError> {
         if print {
             println_shell!("{}\n", self);
@@ -36,7 +44,7 @@ impl Shell {
         Ok(())
     }
 
-    fn status(&mut self) -> Result<ExitStatus, ShellError> {
+    pub fn status(&mut self) -> Result<ExitStatus, ShellError> {
         self.0.status().map_err(|_| ShellError::IoError)
     }
 }

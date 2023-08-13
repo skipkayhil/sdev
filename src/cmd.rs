@@ -1,7 +1,7 @@
 use std::fmt;
 use std::io;
 use std::io::Write;
-use std::process::{Command, ExitStatus, Output, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 
 macro_rules! shell {
     ($bin:expr, $($x:expr),* $(,)?) => {
@@ -33,12 +33,6 @@ pub struct PrintableCommand {
 }
 
 impl PrintableCommand {
-    fn output(&mut self) -> Result<Output, CmdError> {
-        self.command
-            .output()
-            .map_err(|e| CmdError::IoError(self.to_string(), e))
-    }
-
     fn run(&mut self) -> Result<(), CmdError> {
         self.status().map(|_| {})
     }

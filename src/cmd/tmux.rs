@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::cmd::{fuzzy_select, PrintableCommand};
+use crate::dep::{tmux, Dep};
 use crate::repo::GitRepo;
 use crate::repositories::git_repos::{CachingRepository, FileSystemRepository, Repository};
 use crate::Config;
@@ -11,12 +12,7 @@ pub fn run(config: Config) -> Result<(), String> {
         return Ok(());
     };
 
-    let has_output = shell!("tmux", "has", "-t", format!("={}", repo.name())).output()?;
-
-    if !has_output.status.success() {
-        let (name, path) = (repo.name(), repo.path());
-        shell!("tmux", "new-session", "-d", "-s", name, "-c", path).output()?;
-    };
+    tmux::Session::new(repo.name(), repo.path()).process();
 
     attach_cmd(repo.name()).run().map_err(From::from)
 }
