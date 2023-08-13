@@ -1,4 +1,5 @@
 use std::fmt;
+use std::io;
 use std::process::{Command, ExitStatus, Output};
 
 macro_rules! println_shell {
@@ -19,6 +20,7 @@ macro_rules! new {
 
 pub(crate) use new;
 
+#[derive(Debug)]
 pub struct Shell(Command);
 
 impl Shell {
@@ -31,7 +33,10 @@ impl Shell {
             println_shell!("{}\n", self);
         }
 
-        self.0.output().map_err(|_| ShellError::IoError)
+        self.0.output().map_err(|e| ShellError::Io {
+            shell: self.to_string(),
+            source: e,
+        })
     }
 
     pub fn run(&mut self, print: bool) -> Result<(), ShellError> {
@@ -45,12 +50,21 @@ impl Shell {
     }
 
     pub fn status(&mut self) -> Result<ExitStatus, ShellError> {
-        self.0.status().map_err(|_| ShellError::IoError)
+        self.0.status().map_err(|e| ShellError::Io {
+            shell: self.to_string(),
+            source: e,
+        })
     }
 }
 
+#[derive(thiserror::Error, Debug)]
 pub enum ShellError {
-    IoError,
+    #[error("error running \"{shell}\"")]
+    Io {
+        shell: String,
+        #[source]
+        source: io::Error,
+    },
 }
 
 impl fmt::Display for Shell {

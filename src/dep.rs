@@ -1,34 +1,96 @@
+use crate::shell::ShellError;
+
 mod clone;
 pub mod tmux;
 
 pub use clone::Clone;
 
+type DepResult = Result<Status, Unmeetable>;
+type Reqs = Vec<Box<dyn Dep>>;
+
+const MET: DepResult = Ok(Status::Met);
+const UNMET: DepResult = Ok(Status::Unmet);
+
+pub enum Status {
+    Met,
+    Unmet,
+}
+
+impl Status {
+    fn is_met(&self) -> bool {
+        matches!(self, Status::Met)
+    }
+
+    fn is_unmet(&self) -> bool {
+        matches!(self, Status::Unmet)
+    }
+}
+
+impl From<bool> for Status {
+    fn from(b: bool) -> Self {
+        if b {
+            Status::Met
+        } else {
+            Status::Unmet
+        }
+    }
+}
+
+#[cfg(test)]
+mod status_tests {
+    use super::*;
+
+    #[test]
+    fn from_bool() {
+        assert!(matches!(Status::from(true), Status::Met));
+        assert!(matches!(Status::from(false), Status::Unmet));
+    }
+
+    #[test]
+    fn is_met() {
+        assert!(Status::Met.is_met());
+        assert!(!Status::Unmet.is_met());
+    }
+
+    #[test]
+    fn is_unmet() {
+        assert!(!Status::Met.is_unmet());
+        assert!(Status::Unmet.is_unmet());
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("unmeetable")]
+pub enum Unmeetable {
+    Shell(#[from] ShellError),
+}
+
 pub trait Dep {
-    fn met(&self) -> bool;
+    fn met(&self) -> DepResult;
     fn meet(&self) -> bool;
 
-    fn reqs_to_met(&self) -> Vec<Box<dyn Dep>> {
+    fn reqs_to_met(&self) -> Reqs {
         vec![]
     }
 
-    fn reqs_to_meet(&self) -> Vec<Box<dyn Dep>> {
+    fn reqs_to_meet(&self) -> Reqs {
         vec![]
     }
 
-    fn process(&self) -> bool {
+    fn process(&self) -> DepResult {
         for req in self.reqs_to_met().iter() {
-            if !req.process() {
-                return false;
+            if req.process()?.is_unmet() {
+                return UNMET;
             }
         }
 
-        if self.met() {
-            return true;
+        if self.met()?.is_met() {
+            return MET;
         }
 
         for req in self.reqs_to_meet().iter() {
-            if !req.process() {
-                return false;
+            if req.process()?.is_unmet() {
+                return UNMET;
             }
         }
 

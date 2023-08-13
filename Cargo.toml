@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bstr = "1"
 gix-url = "0"
+thiserror = "1"
 
 [dependencies.clap]
 version = "4"

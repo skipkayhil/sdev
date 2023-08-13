@@ -1,6 +1,6 @@
 use bstr::BString;
 
-use crate::dep::Dep;
+use crate::dep::{Dep, DepResult, Reqs, UNMET};
 use crate::shell;
 
 const CMD_ATTACH: &str = "attach-session";
@@ -25,11 +25,14 @@ impl Session {
 }
 
 impl Dep for Session {
-    fn met(&self) -> bool {
-        shell::new!("tmux", "has", "-t", format!("={}", self.name))
+    fn met(&self) -> DepResult {
+        let status = shell::new!("tmux", "has", "-t", format!("={}", self.name))
             // output instead of status to intercept stdout
-            .output(false)
-            .is_ok_and(|x| x.status.success())
+            .output(false)?
+            .status
+            .success();
+
+        Ok(status.into())
     }
 
     fn meet(&self) -> bool {
@@ -73,11 +76,17 @@ impl Attach {
 }
 
 impl Dep for Attach {
-    fn met(&self) -> bool {
-        in_tmux()
-            && shell::new!("tmux", "display-message", "-p", "\"#S\"")
-                .output(false)
-                .is_ok_and(|x| BString::from(x.stdout) == self.name)
+    fn met(&self) -> DepResult {
+        if !in_tmux() {
+            return UNMET;
+        }
+
+        let active_name: BString = shell::new!("tmux", "display-message", "-p", "\"#S\"")
+            .output(false)?
+            .stdout
+            .into();
+
+        Ok((active_name == self.name).into())
     }
 
     fn meet(&self) -> bool {
@@ -88,7 +97,7 @@ impl Dep for Attach {
             .is_ok()
     }
 
-    fn reqs_to_meet(&self) -> Vec<Box<dyn Dep>> {
+    fn reqs_to_meet(&self) -> Reqs {
         vec![Box::new(Session::new(self.name.clone(), self.path.clone()))]
     }
 }
