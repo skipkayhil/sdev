@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
-use crate::cmd::PrintableCommand;
+use crate::dep::{Clone, Dep};
 use crate::repo::GitRepoSource;
 use crate::Config;
 
@@ -9,9 +8,9 @@ pub fn run(source: &GitRepoSource, config: &Config) -> Result<(), String> {
     let url = url_for(source, config);
     let path = path_for(source, config);
 
-    shell!("git", "clone", url, path)
-        .print_and_run()
-        .map_err(From::from)
+    Clone::new(url, path).process();
+
+    Ok(())
 }
 
 fn url_for(source: &GitRepoSource, config: &Config) -> String {

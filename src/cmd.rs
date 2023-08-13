@@ -3,12 +3,6 @@ use std::io;
 use std::io::Write;
 use std::process::{Command, ExitStatus, Output, Stdio};
 
-macro_rules! println_shell {
-    ($($arg:tt)*) => ({
-        println!("\x1b[90m$ {}\x1b[0m", format_args!($($arg)*));
-    })
-}
-
 macro_rules! shell {
     ($bin:expr, $($x:expr),* $(,)?) => {
         {
@@ -39,12 +33,6 @@ pub struct PrintableCommand {
 }
 
 impl PrintableCommand {
-    fn print_and_run(&mut self) -> Result<(), CmdError> {
-        println_shell!("{}\n", self);
-
-        self.run()
-    }
-
     fn output(&mut self) -> Result<Output, CmdError> {
         self.command
             .output()

@@ -3,8 +3,10 @@ use std::path::Path;
 
 mod cmd;
 mod config;
+mod dep;
 mod repo;
 mod repositories;
+mod shell;
 
 use crate::config::Config;
 use crate::repo::GitRepoSource;
