@@ -1,7 +1,6 @@
 use std::path::PathBuf;
-use std::process::Command;
 
-use crate::cmd::{fuzzy_select, PrintableCommand};
+use crate::cmd::fuzzy_select;
 use crate::dep::{tmux, Dep};
 use crate::repo::GitRepo;
 use crate::repositories::git_repos::{CachingRepository, FileSystemRepository, Repository};
@@ -13,24 +12,9 @@ pub fn run(config: Config) -> Result<(), String> {
     };
 
     tmux::Session::new(repo.name(), repo.path()).process();
+    tmux::Attach::new(repo.name(), repo.path()).process();
 
-    attach_cmd(repo.name()).run().map_err(From::from)
-}
-
-fn attach_cmd(session_name: &str) -> PrintableCommand {
-    let attach_command =
-        std::env::var("TMUX").map_or_else(|_| "attach-session", |_| "switch-client");
-
-    let tmux_friendly_name: String = session_name
-        .chars()
-        .map(|x| match x {
-            '.' => '_',
-            ':' => '_',
-            _ => x,
-        })
-        .collect();
-
-    shell!("tmux", attach_command, "-t", tmux_friendly_name)
+    Ok(())
 }
 
 fn fuzzy_select_repository(root: PathBuf) -> Result<Option<GitRepo>, String> {

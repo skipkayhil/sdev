@@ -1,60 +1,8 @@
-use std::fmt;
-use std::io;
 use std::io::Write;
-use std::process::{Command, ExitStatus, Stdio};
-
-macro_rules! shell {
-    ($bin:expr, $($x:expr),* $(,)?) => {
-        {
-            let mut command = Command::new($bin);
-            $(command.arg($x);)*
-            PrintableCommand { command }
-        }
-    };
-}
+use std::process::{Command, Stdio};
 
 pub mod clone;
 pub mod tmux;
-
-enum CmdError {
-    IoError(String, io::Error),
-}
-
-impl From<CmdError> for String {
-    fn from(e: CmdError) -> Self {
-        match e {
-            CmdError::IoError(cmd, io_e) => format!("failed to execute `{cmd}`: {io_e}"),
-        }
-    }
-}
-
-pub struct PrintableCommand {
-    command: Command,
-}
-
-impl PrintableCommand {
-    fn run(&mut self) -> Result<(), CmdError> {
-        self.status().map(|_| {})
-    }
-
-    fn status(&mut self) -> Result<ExitStatus, CmdError> {
-        self.command
-            .status()
-            .map_err(|e| CmdError::IoError(self.to_string(), e))
-    }
-}
-
-impl fmt::Display for PrintableCommand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", &self.command.get_program().to_str().unwrap())?;
-
-        for arg in self.command.get_args() {
-            write!(f, " {}", arg.to_str().unwrap())?;
-        }
-
-        Ok(())
-    }
-}
 
 pub enum FzfError {
     IoError(std::io::Error),

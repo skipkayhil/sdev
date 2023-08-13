@@ -1,5 +1,14 @@
+use bstr::BString;
+
 use crate::dep::Dep;
 use crate::shell;
+
+const CMD_ATTACH: &str = "attach-session";
+const CMD_SWITCH: &str = "switch-client";
+
+fn in_tmux() -> bool {
+    std::env::var("TMUX").is_ok()
+}
 
 pub struct Session {
     name: String,
@@ -35,5 +44,47 @@ impl Dep for Session {
         )
         .run(false)
         .is_ok()
+    }
+}
+
+pub struct Attach {
+    name: String,
+    // path: String,
+}
+
+impl Attach {
+    pub fn new<S: Into<String>>(name: S, _path: S) -> Self {
+        Attach {
+            name: name.into(),
+            // path: path.into(),
+        }
+    }
+
+    fn tmux_friendly_name(&self) -> String {
+        self.name
+            .chars()
+            .map(|x| match x {
+                '.' => '_',
+                ':' => '_',
+                _ => x,
+            })
+            .collect()
+    }
+}
+
+impl Dep for Attach {
+    fn met(&self) -> bool {
+        in_tmux()
+            && shell::new!("tmux", "display-message", "-p", "\"#S\"")
+                .output(false)
+                .is_ok_and(|x| BString::from(x.stdout) == self.name)
+    }
+
+    fn meet(&self) -> bool {
+        let subcommand = if in_tmux() { CMD_SWITCH } else { CMD_ATTACH };
+
+        shell::new!("tmux", subcommand, "-t", self.tmux_friendly_name())
+            .run(false)
+            .is_ok()
     }
 }
