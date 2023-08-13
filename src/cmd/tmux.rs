@@ -11,7 +11,6 @@ pub fn run(config: Config) -> Result<(), String> {
         return Ok(());
     };
 
-    tmux::Session::new(repo.name(), repo.path()).process();
     tmux::Attach::new(repo.name(), repo.path()).process();
 
     Ok(())

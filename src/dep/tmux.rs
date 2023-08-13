@@ -49,14 +49,14 @@ impl Dep for Session {
 
 pub struct Attach {
     name: String,
-    // path: String,
+    path: String,
 }
 
 impl Attach {
-    pub fn new<S: Into<String>>(name: S, _path: S) -> Self {
+    pub fn new<S: Into<String>>(name: S, path: S) -> Self {
         Attach {
             name: name.into(),
-            // path: path.into(),
+            path: path.into(),
         }
     }
 
@@ -86,5 +86,9 @@ impl Dep for Attach {
         shell::new!("tmux", subcommand, "-t", self.tmux_friendly_name())
             .run(false)
             .is_ok()
+    }
+
+    fn reqs_to_meet(&self) -> Vec<Box<dyn Dep>> {
+        vec![Box::new(Session::new(self.name.clone(), self.path.clone()))]
     }
 }
