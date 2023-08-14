@@ -1,4 +1,4 @@
-use crate::dep::{Dep, DepResult};
+use crate::dep::{Dep, MetResult, MeetResult};
 use crate::shell;
 use std::path::PathBuf;
 
@@ -14,13 +14,14 @@ impl Clone {
 }
 
 impl Dep for Clone {
-    fn met(&self) -> DepResult {
+    fn met(&self) -> MetResult {
         Ok(self.path.join(".git").is_dir().into())
     }
 
-    fn meet(&self) -> bool {
+    fn meet(&self) -> MeetResult {
         shell::new!("git", "clone", &self.url, &self.path)
-            .run(true)
-            .is_ok()
+            .run(true)?;
+
+        Ok(())
     }
 }

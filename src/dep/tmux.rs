@@ -1,6 +1,6 @@
 use bstr::BString;
 
-use crate::dep::{Dep, DepResult, Reqs, UNMET};
+use crate::dep::{Dep, MetResult, MeetResult, Reqs, UNMET};
 use crate::shell;
 
 const CMD_ATTACH: &str = "attach-session";
@@ -25,7 +25,7 @@ impl Session {
 }
 
 impl Dep for Session {
-    fn met(&self) -> DepResult {
+    fn met(&self) -> MetResult {
         let status = shell::new!("tmux", "has", "-t", format!("={}", self.name))
             // output instead of status to intercept stdout
             .output(false)?
@@ -35,7 +35,7 @@ impl Dep for Session {
         Ok(status.into())
     }
 
-    fn meet(&self) -> bool {
+    fn meet(&self) -> MeetResult {
         shell::new!(
             "tmux",
             "new-session",
@@ -45,8 +45,9 @@ impl Dep for Session {
             "-c",
             &self.path
         )
-        .run(false)
-        .is_ok()
+        .run(false)?;
+
+        Ok(())
     }
 }
 
@@ -76,7 +77,7 @@ impl Attach {
 }
 
 impl Dep for Attach {
-    fn met(&self) -> DepResult {
+    fn met(&self) -> MetResult {
         if !in_tmux() {
             return UNMET;
         }
@@ -89,12 +90,13 @@ impl Dep for Attach {
         Ok((active_name == self.name).into())
     }
 
-    fn meet(&self) -> bool {
+    fn meet(&self) -> MeetResult {
         let subcommand = if in_tmux() { CMD_SWITCH } else { CMD_ATTACH };
 
         shell::new!("tmux", subcommand, "-t", self.tmux_friendly_name())
-            .run(false)
-            .is_ok()
+            .run(false)?;
+
+        Ok(())
     }
 
     fn reqs_to_meet(&self) -> Reqs {

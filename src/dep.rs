@@ -5,11 +5,12 @@ pub mod tmux;
 
 pub use clone::Clone;
 
-type DepResult = Result<Status, Unmeetable>;
+type MetResult = Result<Status, Unmeetable>;
+type MeetResult = Result<(), Unmeetable>;
 type Reqs = Vec<Box<dyn Dep>>;
 
-const MET: DepResult = Ok(Status::Met);
-const UNMET: DepResult = Ok(Status::Unmet);
+const MET: MetResult = Ok(Status::Met);
+const UNMET: MetResult = Ok(Status::Unmet);
 
 pub enum Status {
     Met,
@@ -66,8 +67,8 @@ pub enum Unmeetable {
 }
 
 pub trait Dep {
-    fn met(&self) -> DepResult;
-    fn meet(&self) -> bool;
+    fn met(&self) -> MetResult;
+    fn meet(&self) -> MeetResult;
 
     fn reqs_to_met(&self) -> Reqs {
         vec![]
@@ -77,7 +78,7 @@ pub trait Dep {
         vec![]
     }
 
-    fn process(&self) -> DepResult {
+    fn process(&self) -> MetResult {
         for req in self.reqs_to_met().iter() {
             if req.process()?.is_unmet() {
                 return UNMET;
@@ -94,7 +95,7 @@ pub trait Dep {
             }
         }
 
-        self.meet();
+        self.meet()?;
 
         self.met()
     }
