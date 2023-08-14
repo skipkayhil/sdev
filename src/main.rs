@@ -27,7 +27,7 @@ enum Commands {
     Tmux,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     let config = Config {
@@ -36,13 +36,6 @@ fn main() {
         user: "skipkayhil".to_string(),
     };
 
-    try_main(cli, config).unwrap_or_else(|message| {
-        println!("error: {message}");
-        std::process::exit(1)
-    })
-}
-
-fn try_main(cli: Cli, config: Config) -> Result<(), String> {
     match &cli.command {
         Commands::Clone { repo } => cmd::clone::run(repo, &config),
         Commands::Tmux => cmd::tmux::run(config),

@@ -1,27 +1,20 @@
+use std::io;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
 pub mod clone;
 pub mod tmux;
 
+#[derive(thiserror::Error, Debug)]
 pub enum FzfError {
-    IoError(std::io::Error),
-    PipeError,
-}
-
-impl From<FzfError> for String {
-    fn from(e: FzfError) -> Self {
-        match e {
-            FzfError::IoError(io_e) => format!("error running fzf-tmux: {io_e}"),
-            FzfError::PipeError => "error communicating with fzf".to_string(),
-        }
-    }
-}
-
-impl From<std::io::Error> for FzfError {
-    fn from(e: std::io::Error) -> Self {
-        FzfError::IoError(e)
-    }
+    #[error("error getting output from fzf-tmux")]
+    Output(#[source] io::Error),
+    #[error("error creating pipe to fzf-tmux")]
+    Pipe,
+    #[error("error running fzf-tmux")]
+    Spawn(#[source] io::Error),
+    #[error("error writing options to fzf-tmux")]
+    Write(#[source] io::Error),
 }
 
 pub fn fuzzy_select<S, I>(options: I) -> Result<Option<String>, FzfError>
@@ -33,18 +26,19 @@ where
         .arg("-p")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .spawn()?;
+        .spawn()
+        .map_err(FzfError::Spawn)?;
 
     match process.stdin {
         Some(ref mut stdin) => {
             for option in options.into_iter() {
-                writeln!(stdin, "{option}")?
+                writeln!(stdin, "{option}").map_err(FzfError::Write)?
             }
         }
-        None => return Err(FzfError::PipeError),
+        None => return Err(FzfError::Pipe),
     };
 
-    let output = process.wait_with_output()?;
+    let output = process.wait_with_output().map_err(FzfError::Output)?;
 
     let selected = output
         .status

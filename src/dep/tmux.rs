@@ -1,6 +1,6 @@
 use bstr::BString;
 
-use crate::dep::{Dep, MetResult, MeetResult, Reqs, UNMET};
+use crate::dep::{Dep, MeetResult, MetResult, Reqs, UNMET};
 use crate::shell;
 
 const CMD_ATTACH: &str = "attach-session";
@@ -93,8 +93,7 @@ impl Dep for Attach {
     fn meet(&self) -> MeetResult {
         let subcommand = if in_tmux() { CMD_SWITCH } else { CMD_ATTACH };
 
-        shell::new!("tmux", subcommand, "-t", self.tmux_friendly_name())
-            .run(false)?;
+        shell::new!("tmux", subcommand, "-t", self.tmux_friendly_name()).run(false)?;
 
         Ok(())
     }

@@ -4,11 +4,11 @@ use crate::dep::{Clone, Dep};
 use crate::repo::GitRepoSource;
 use crate::Config;
 
-pub fn run(source: &GitRepoSource, config: &Config) -> Result<(), String> {
+pub fn run(source: &GitRepoSource, config: &Config) -> anyhow::Result<()> {
     let url = url_for(source, config);
     let path = path_for(source, config);
 
-    Clone::new(url, path).process();
+    Clone::new(url, path).process()?;
 
     Ok(())
 }

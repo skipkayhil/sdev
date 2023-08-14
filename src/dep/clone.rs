@@ -1,4 +1,4 @@
-use crate::dep::{Dep, MetResult, MeetResult};
+use crate::dep::{Dep, MeetResult, MetResult};
 use crate::shell;
 use std::path::PathBuf;
 
@@ -19,8 +19,7 @@ impl Dep for Clone {
     }
 
     fn meet(&self) -> MeetResult {
-        shell::new!("git", "clone", &self.url, &self.path)
-            .run(true)?;
+        shell::new!("git", "clone", &self.url, &self.path).run(true)?;
 
         Ok(())
     }

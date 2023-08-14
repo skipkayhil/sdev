@@ -5,22 +5,10 @@ pub mod git_repos {
 
     use crate::repo::{GitRepo, TryFromFsError};
 
+    #[derive(thiserror::Error, Debug)]
     pub enum FetchAllError {
-        IoError(io::Error),
-    }
-
-    impl From<FetchAllError> for String {
-        fn from(value: FetchAllError) -> Self {
-            match value {
-                FetchAllError::IoError(e) => format!("error fetching git repos: {e}"),
-            }
-        }
-    }
-
-    impl From<io::Error> for FetchAllError {
-        fn from(e: io::Error) -> Self {
-            FetchAllError::IoError(e)
-        }
+        #[error("error reading root src dir")]
+        ReadRoot(#[source] io::Error),
     }
 
     #[derive(Debug)]
@@ -60,7 +48,7 @@ pub mod git_repos {
 
     impl Repository for FileSystemRepository {
         fn fetch_all(&mut self) -> Result<Vec<GitRepo>, FetchAllError> {
-            let host_entries = self.root.read_dir()?.filter_map(|dir| dir.ok());
+            let host_entries = self.root.read_dir().map_err(FetchAllError::ReadRoot)?.filter_map(|dir| dir.ok());
 
             let mut queue = VecDeque::new();
             let mut repos = Vec::new();
