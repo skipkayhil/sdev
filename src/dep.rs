@@ -1,9 +1,7 @@
 use crate::shell::ShellError;
 
-mod clone;
+pub mod git;
 pub mod tmux;
-
-pub use clone::Clone;
 
 type MetResult = Result<Status, Unmeetable>;
 type MeetResult = Result<(), Unmeetable>;
