@@ -48,7 +48,11 @@ pub mod git_repos {
 
     impl Repository for FileSystemRepository {
         fn fetch_all(&mut self) -> Result<Vec<GitRepo>, FetchAllError> {
-            let host_entries = self.root.read_dir().map_err(FetchAllError::ReadRoot)?.filter_map(|dir| dir.ok());
+            let host_entries = self
+                .root
+                .read_dir()
+                .map_err(FetchAllError::ReadRoot)?
+                .filter_map(|dir| dir.ok());
 
             let mut queue = VecDeque::new();
             let mut repos = Vec::new();

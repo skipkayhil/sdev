@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use crate::dep::Dep;
 use crate::dep::git::Clone;
+use crate::dep::Dep;
 use crate::repo::GitRepoSource;
 use crate::Config;
 

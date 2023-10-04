@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.72"
 bstr = "1"
-gix-url = "0"
+gix = "0"
 thiserror = "1"
 
 [dependencies.clap]

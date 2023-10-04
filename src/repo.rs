@@ -1,5 +1,5 @@
 use bstr::ByteSlice;
-use gix_url::{Scheme, Url};
+use gix::url::{Scheme, Url};
 
 use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
@@ -46,7 +46,7 @@ impl GitRepo {
     ) -> Result<GitRepo, TryFromAbsoluteError> {
         let host = {
             let Ok(relative_path) = path.strip_prefix(root) else {
-                return Err(TryFromAbsoluteError::NotInRoot)
+                return Err(TryFromAbsoluteError::NotInRoot);
             };
 
             let maybe_host = relative_path.components().find_map(|c| match c {
@@ -65,8 +65,7 @@ impl GitRepo {
             return Err(TryFromAbsoluteError::InvalidDir);
         };
 
-        Self::try_from_fs(name, path.clone(), host)
-            .map_err(|e| TryFromAbsoluteError::TryFromFsError(e))
+        Self::try_from_fs(name, path.clone(), host).map_err(TryFromAbsoluteError::TryFromFsError)
     }
 
     pub fn try_from_fs(
