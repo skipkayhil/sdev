@@ -3,12 +3,16 @@ pub mod pr {
     use gix::remote::Direction;
     use std::env;
 
+    const ORIGIN: &str = "origin";
+    const UPSTREAM: &str = "upstream";
+
     #[derive(thiserror::Error, Debug)]
     #[error("error opening pr")]
     enum Error {
         DetachedHead,
+        MissingOriginForFork,
         MissingRemoteHost,
-        MissingRemoteUrl,
+        MissingRemoteUrl(String),
         MissingTargetRemote,
         PathEncoding(#[source] std::string::FromUtf8Error),
     }
@@ -18,9 +22,21 @@ pub mod pr {
         Upstream,
     }
 
+    impl From<&Remote> for String {
+        fn from(r: &Remote) -> Self {
+            match r {
+                Remote::Origin => ORIGIN.to_string(),
+                Remote::Upstream => UPSTREAM.to_string(),
+            }
+        }
+    }
+
     enum UrlStrategy {
         GithubOrigin(String),
-        GithubUpstream(String),
+        GithubUpstream {
+            url: String,
+            origin: String,
+        },
         Unknown,
     }
 
@@ -38,7 +54,7 @@ pub mod pr {
 
             let url = remote
                 .url(Direction::Fetch)
-                .ok_or(Error::MissingRemoteUrl)?;
+                .ok_or_else(|| Error::MissingRemoteUrl((&remote_type).into()))?;
             let host = url.host().ok_or(Error::MissingRemoteHost)?;
 
             let path = {
@@ -51,7 +67,21 @@ pub mod pr {
             Ok(match host {
                 "github.com" => match remote_type {
                     Remote::Origin => Self::GithubOrigin(url_string),
-                    Remote::Upstream => Self::GithubUpstream(url_string),
+                    Remote::Upstream => {
+                        let Ok(origin) = repo.find_remote(ORIGIN) else {
+                            Err(Error::MissingOriginForFork)?
+                        };
+
+                        let url = origin.url(Direction::Fetch).ok_or_else(|| Error::MissingRemoteUrl(ORIGIN.to_string()))?;
+
+                        let origin = {
+                            let utf = url.path.strip_suffix(b".git").unwrap_or(&url.path).to_vec();
+                            let path = String::from_utf8(utf).map_err(Error::PathEncoding)?;
+                            path.split("/").next().expect("remote path is missing a /").to_string()
+                        };
+
+                        Self::GithubUpstream { url: url_string, origin }
+                    },
                 },
                 _ => Self::Unknown,
             })
@@ -68,7 +98,13 @@ pub mod pr {
 
                     format!("https://{}/pull/{}{}", u, target_string, branch)
                 }
-                // Self::GithubUpstream(u)
+                Self::GithubUpstream { url, origin } => {
+                    let target_string = target
+                        .as_ref()
+                        .map_or("".to_string(), |name| format!("{}...", name));
+
+                    format!("https://{}/pull/{}{}:{}", url, target_string, origin, branch)
+                }
                 _ => todo!(),
             }
         }
@@ -81,10 +117,11 @@ pub mod pr {
         let head = repo.head_ref()?.ok_or(Error::DetachedHead)?;
         let branch = head.name().file_name();
 
-        let strategy = UrlStrategy::try_from(&repo)?;
+        let url = UrlStrategy::try_from(&repo)?.to_url(branch, target);
 
-        // TODO: support not GitHub URL format
-        println!("{}", strategy.to_url(branch, target));
+        println!("Opening {url}");
+
+        opener::open(url)?;
 
         Ok(())
     }
