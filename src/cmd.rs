@@ -3,6 +3,7 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 pub mod clone;
+pub mod open;
 pub mod tmux;
 
 #[derive(thiserror::Error, Debug)]
