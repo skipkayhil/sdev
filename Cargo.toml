@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = "1.0.72"
 bstr = "1"
 gix = "0"
+home = "0.5.9"
 opener = "0.6.1"
 thiserror = "1"
 
