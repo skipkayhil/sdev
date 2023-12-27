@@ -6,17 +6,35 @@ use crate::shell;
 const CMD_ATTACH: &str = "attach-session";
 const CMD_SWITCH: &str = "switch-client";
 
+#[derive(Clone)]
+pub struct SessionName(String);
+
+impl From<&str> for SessionName {
+    fn from(value: &str) -> Self {
+        Self(
+            value
+                .chars()
+                .map(|x| match x {
+                    '.' => '_',
+                    ':' => '_',
+                    _ => x,
+                })
+                .collect(),
+        )
+    }
+}
+
 fn in_tmux() -> bool {
     std::env::var("TMUX").is_ok()
 }
 
 pub struct Session {
-    name: String,
+    name: SessionName,
     path: String,
 }
 
 impl Session {
-    pub fn new<S: Into<String>>(name: S, path: S) -> Self {
+    pub fn new<S: Into<SessionName>, T: Into<String>>(name: S, path: T) -> Self {
         Session {
             name: name.into(),
             path: path.into(),
@@ -26,7 +44,7 @@ impl Session {
 
 impl Dep for Session {
     fn met(&self) -> MetResult {
-        let status = shell::new!("tmux", "has", "-t", format!("={}", self.name))
+        let status = shell::new!("tmux", "has", "-t", format!("={}", self.name.0))
             // output instead of status to intercept stdout
             .output(false)?
             .status
@@ -41,7 +59,7 @@ impl Dep for Session {
             "new-session",
             "-d",
             "-s",
-            &self.name,
+            &self.name.0,
             "-c",
             &self.path
         )
@@ -52,27 +70,16 @@ impl Dep for Session {
 }
 
 pub struct Attach {
-    name: String,
+    name: SessionName,
     path: String,
 }
 
 impl Attach {
-    pub fn new<S: Into<String>>(name: S, path: S) -> Self {
+    pub fn new<S: Into<SessionName>, T: Into<String>>(name: S, path: T) -> Self {
         Attach {
             name: name.into(),
             path: path.into(),
         }
-    }
-
-    fn tmux_friendly_name(&self) -> String {
-        self.name
-            .chars()
-            .map(|x| match x {
-                '.' => '_',
-                ':' => '_',
-                _ => x,
-            })
-            .collect()
     }
 }
 
@@ -87,13 +94,13 @@ impl Dep for Attach {
             .stdout
             .into();
 
-        Ok((active_name == self.name).into())
+        Ok((active_name == self.name.0).into())
     }
 
     fn meet(&self) -> MeetResult {
         let subcommand = if in_tmux() { CMD_SWITCH } else { CMD_ATTACH };
 
-        shell::new!("tmux", subcommand, "-t", self.tmux_friendly_name()).run(false)?;
+        shell::new!("tmux", subcommand, "-t", &self.name.0).run(false)?;
 
         Ok(())
     }
