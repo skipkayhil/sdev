@@ -76,7 +76,7 @@ pub mod pr {
                         let origin = {
                             let utf = url.path.strip_suffix(b".git").unwrap_or(&url.path).to_vec();
                             let path = String::from_utf8(utf).map_err(Error::PathEncoding)?;
-                            path.split("/")
+                            path.split('/')
                                 .next()
                                 .expect("remote path is missing a /")
                                 .to_string()
