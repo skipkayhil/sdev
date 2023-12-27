@@ -33,10 +33,7 @@ pub mod pr {
 
     enum UrlStrategy {
         GithubOrigin(String),
-        GithubUpstream {
-            url: String,
-            origin: String,
-        },
+        GithubUpstream { url: String, origin: String },
         Unknown,
     }
 
@@ -72,16 +69,24 @@ pub mod pr {
                             Err(Error::MissingOriginForFork)?
                         };
 
-                        let url = origin.url(Direction::Fetch).ok_or_else(|| Error::MissingRemoteUrl(ORIGIN.to_string()))?;
+                        let url = origin
+                            .url(Direction::Fetch)
+                            .ok_or_else(|| Error::MissingRemoteUrl(ORIGIN.to_string()))?;
 
                         let origin = {
                             let utf = url.path.strip_suffix(b".git").unwrap_or(&url.path).to_vec();
                             let path = String::from_utf8(utf).map_err(Error::PathEncoding)?;
-                            path.split("/").next().expect("remote path is missing a /").to_string()
+                            path.split("/")
+                                .next()
+                                .expect("remote path is missing a /")
+                                .to_string()
                         };
 
-                        Self::GithubUpstream { url: url_string, origin }
-                    },
+                        Self::GithubUpstream {
+                            url: url_string,
+                            origin,
+                        }
+                    }
                 },
                 _ => Self::Unknown,
             })
@@ -103,7 +108,10 @@ pub mod pr {
                         .as_ref()
                         .map_or("".to_string(), |name| format!("{}...", name));
 
-                    format!("https://{}/pull/{}{}:{}", url, target_string, origin, branch)
+                    format!(
+                        "https://{}/pull/{}{}:{}",
+                        url, target_string, origin, branch
+                    )
                 }
                 _ => todo!(),
             }
