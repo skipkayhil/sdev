@@ -6,6 +6,7 @@ use crate::repo::GitRepo;
 use crate::repositories::git_repos::{
     CachingRepository, FetchAllError, FileSystemRepository, Repository,
 };
+use crate::shell;
 use crate::Config;
 
 #[derive(thiserror::Error, Debug)]
@@ -15,14 +16,27 @@ enum TmuxError {
     Fzf(#[source] FzfError),
 }
 
+const CMD_ATTACH: &str = "attach-session";
+const CMD_SWITCH: &str = "switch-client";
+
 pub fn run(config: Config) -> anyhow::Result<()> {
     let Some(repo) = fuzzy_select_repository(config.root)? else {
         return Ok(());
     };
 
-    tmux::Attach::new(repo.name(), repo.path()).process()?;
+    let name = tmux::SessionName::from(repo.name());
+
+    tmux::Session::new(name.clone(), repo.path()).process()?;
+
+    let subcommand = if in_tmux() { CMD_SWITCH } else { CMD_ATTACH };
+
+    shell::new!("tmux", subcommand, "-t", &name.0).run(false)?;
 
     Ok(())
+}
+
+fn in_tmux() -> bool {
+    std::env::var("TMUX").is_ok()
 }
 
 fn fuzzy_select_repository(root: PathBuf) -> Result<Option<GitRepo>, TmuxError> {

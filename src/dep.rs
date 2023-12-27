@@ -7,11 +7,6 @@ type MetResult = Result<Status, Unmeetable>;
 type MeetResult = Result<(), Unmeetable>;
 type Reqs = Vec<Box<dyn Dep>>;
 
-#[cfg(test)]
-const MET: MetResult = Ok(Status::Met);
-
-const UNMET: MetResult = Ok(Status::Unmet);
-
 pub enum Status {
     Met,
     Unmet,
@@ -106,6 +101,9 @@ pub trait Dep {
 #[cfg(test)]
 mod dep_tests {
     use super::*;
+
+    const MET: MetResult = Ok(Status::Met);
+    const UNMET: MetResult = Ok(Status::Unmet);
 
     struct BlankDep;
     impl Dep for BlankDep {
