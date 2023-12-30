@@ -40,10 +40,7 @@ pub enum TryFromFsError {
 }
 
 impl GitRepo {
-    pub fn try_from_absolute(
-        path: PathBuf,
-        root: &PathBuf,
-    ) -> Result<GitRepo, TryFromAbsoluteError> {
+    pub fn try_from_absolute(path: &Path, root: &PathBuf) -> Result<GitRepo, TryFromAbsoluteError> {
         let host = {
             let Ok(relative_path) = path.strip_prefix(root) else {
                 return Err(TryFromAbsoluteError::NotInRoot);
@@ -65,16 +62,16 @@ impl GitRepo {
             return Err(TryFromAbsoluteError::InvalidDir);
         };
 
-        Self::try_from_fs(name, path.clone(), host).map_err(TryFromAbsoluteError::TryFromFsError)
+        Self::try_from_fs(name, path, host).map_err(TryFromAbsoluteError::TryFromFsError)
     }
 
     pub fn try_from_fs(
         raw_name: &OsStr,
-        path: PathBuf,
+        path: &Path,
         host_domain: &OsStr,
     ) -> Result<Self, TryFromFsError> {
-        if Path::new(&path).join(".git").read_dir().is_err() {
-            return Err(TryFromFsError::NotARepo(path));
+        if path.join(".git").read_dir().is_err() {
+            return Err(TryFromFsError::NotARepo(path.to_owned()));
         }
 
         let Some(name) = raw_name.to_str() else {
@@ -83,7 +80,7 @@ impl GitRepo {
 
         Ok(Self {
             name: name.into(),
-            path,
+            path: path.to_owned(),
             host: host_domain.into(),
         })
     }

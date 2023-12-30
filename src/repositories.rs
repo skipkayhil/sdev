@@ -1,7 +1,7 @@
 pub mod git_repos {
     use std::collections::{HashMap, VecDeque};
     use std::io;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use crate::repo::{GitRepo, TryFromFsError};
 
@@ -33,7 +33,7 @@ pub mod git_repos {
     }
     pub trait Repository {
         fn fetch_all(&mut self) -> Result<Vec<GitRepo>, FetchAllError>;
-        fn fetch_one(&mut self, path: PathBuf) -> Result<GitRepo, FetchOneError>;
+        fn fetch_one(&mut self, path: &Path) -> Result<GitRepo, FetchOneError>;
     }
 
     pub struct FileSystemRepository {
@@ -68,7 +68,7 @@ pub mod git_repos {
                     let name = dir_entry.file_name();
                     let path = dir_entry.path();
 
-                    match GitRepo::try_from_fs(&name, path, &host) {
+                    match GitRepo::try_from_fs(&name, &path, &host) {
                         Ok(repo) => repos.push(repo),
                         Err(TryFromFsError::NotARepo(folder)) => {
                             if let Ok(dir_iter) = folder.read_dir() {
@@ -83,9 +83,9 @@ pub mod git_repos {
             Ok(repos)
         }
 
-        fn fetch_one(&mut self, path: PathBuf) -> Result<GitRepo, FetchOneError> {
-            GitRepo::try_from_absolute(path.clone(), &self.root)
-                .map_err(|_| FetchOneError::UnknownRepo(path))
+        fn fetch_one(&mut self, path: &Path) -> Result<GitRepo, FetchOneError> {
+            GitRepo::try_from_absolute(path, &self.root)
+                .map_err(|_| FetchOneError::UnknownRepo(path.to_owned()))
         }
     }
 
@@ -105,7 +105,7 @@ pub mod git_repos {
             }
         }
 
-        pub fn fetch_one_from_cache(&self, path: &PathBuf) -> Option<GitRepo> {
+        pub fn fetch_one_from_cache(&self, path: &Path) -> Option<GitRepo> {
             self.cache.get(path).cloned()
         }
     }
@@ -126,8 +126,8 @@ pub mod git_repos {
             Ok(self.cache.values().cloned().collect())
         }
 
-        fn fetch_one(&mut self, path: PathBuf) -> Result<GitRepo, FetchOneError> {
-            if let Some(repo) = self.cache.get(&path) {
+        fn fetch_one(&mut self, path: &Path) -> Result<GitRepo, FetchOneError> {
+            if let Some(repo) = self.cache.get(path) {
                 return Ok(repo.clone());
             }
 

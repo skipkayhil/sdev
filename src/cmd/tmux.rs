@@ -46,5 +46,5 @@ fn fuzzy_select_repository(root: PathBuf) -> Result<Option<GitRepo>, TmuxError> 
     let maybe_path = fuzzy_select(all_paths.iter().map(|repo| repo.path().as_os_str()))
         .map_err(TmuxError::Fzf)?;
 
-    Ok(maybe_path.and_then(|path| repository.fetch_one_from_cache(&path.into())))
+    Ok(maybe_path.and_then(|path| repository.fetch_one_from_cache(&PathBuf::from(path))))
 }
