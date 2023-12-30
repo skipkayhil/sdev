@@ -60,8 +60,8 @@ pub mod git_repos {
 
                     match GitRepo::try_from_fs(&name, &path, &host) {
                         Ok(repo) => repos.push(repo),
-                        Err(TryFromFsError::NotARepo(folder)) => {
-                            if let Ok(dir_iter) = folder.read_dir() {
+                        Err(TryFromFsError::NotARepo) => {
+                            if let Ok(dir_iter) = path.read_dir() {
                                 queue.extend(dir_iter.filter_map(|dir| dir.ok()));
                             }
                         }

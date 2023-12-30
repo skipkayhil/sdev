@@ -43,31 +43,23 @@ pub enum TryFromFsError {
     #[error("repo name is not UTF-8")]
     Encoding,
     #[error("path is not a git repo")]
-    NotARepo(PathBuf),
+    NotARepo,
 }
 
 impl GitRepo {
     pub fn try_from_absolute(path: &Path, root: &PathBuf) -> Result<GitRepo, TryFromAbsoluteError> {
         let host = {
-            let Ok(relative_path) = path.strip_prefix(root) else {
-                return Err(TryFromAbsoluteError::NotInRoot(root.to_owned()));
-            };
+            let relative_path = path
+                .strip_prefix(root)
+                .map_err(|_| TryFromAbsoluteError::NotInRoot(root.to_owned()))?;
 
-            let maybe_host = relative_path.components().find_map(|c| match c {
-                Component::Normal(segment) => Some(segment),
-                _ => None,
-            });
-
-            let Some(host) = maybe_host else {
-                return Err(TryFromAbsoluteError::InvalidDir);
-            };
-
-            host
+            match relative_path.components().next() {
+                Some(Component::Normal(segment)) => Ok(segment),
+                _ => Err(TryFromAbsoluteError::InvalidDir),
+            }?
         };
 
-        let Some(name) = path.file_name() else {
-            return Err(TryFromAbsoluteError::InvalidDir);
-        };
+        let name = path.file_name().ok_or(TryFromAbsoluteError::InvalidDir)?;
 
         Self::try_from_fs(name, path, host).map_err(TryFromAbsoluteError::TryFromFsError)
     }
@@ -77,19 +69,18 @@ impl GitRepo {
         path: &Path,
         host_domain: &OsStr,
     ) -> Result<Self, TryFromFsError> {
-        if path.join(".git").read_dir().is_err() {
-            return Err(TryFromFsError::NotARepo(path.to_owned()));
-        }
+        path.join(".git")
+            .read_dir()
+            .map_err(|_| TryFromFsError::NotARepo)?;
 
-        let Some(name) = raw_name.to_str() else {
-            return Err(TryFromFsError::Encoding);
-        };
-
-        Ok(Self {
-            name: name.into(),
-            path: path.to_owned(),
-            host: host_domain.into(),
-        })
+        raw_name
+            .to_str()
+            .ok_or(TryFromFsError::Encoding)
+            .map(|name| Self {
+                name: name.into(),
+                path: path.to_owned(),
+                host: host_domain.into(),
+            })
     }
 
     pub fn name(&self) -> &str {
