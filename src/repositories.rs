@@ -42,7 +42,7 @@ pub mod git_repos {
                 .root
                 .read_dir()
                 .map_err(FetchAllError::ReadRoot)?
-                .filter_map(|dir| dir.ok());
+                .filter_map(Result::ok);
 
             let mut queue = VecDeque::new();
             let mut repos = Vec::new();
@@ -51,7 +51,7 @@ pub mod git_repos {
                 let host = host_entry.file_name();
 
                 if let Ok(repo_iter) = host_entry.path().read_dir() {
-                    queue.extend(repo_iter.filter_map(|dir| dir.ok()))
+                    queue.extend(repo_iter.filter_map(Result::ok))
                 }
 
                 while let Some(dir_entry) = queue.pop_front() {
@@ -62,7 +62,7 @@ pub mod git_repos {
                         Ok(repo) => repos.push(repo),
                         Err(TryFromFsError::NotARepo) => {
                             if let Ok(dir_iter) = path.read_dir() {
-                                queue.extend(dir_iter.filter_map(|dir| dir.ok()));
+                                queue.extend(dir_iter.filter_map(Result::ok));
                             }
                         }
                         _ => (),
