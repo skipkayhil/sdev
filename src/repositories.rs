@@ -14,23 +14,16 @@ pub mod git_repos {
     #[derive(Debug)]
     pub enum FetchOneError {
         UnknownRepo(PathBuf),
-        IoError(io::Error),
     }
 
     impl From<FetchOneError> for String {
         fn from(value: FetchOneError) -> Self {
             match value {
                 FetchOneError::UnknownRepo(p) => format!("unknown git repo: {}", p.display()),
-                FetchOneError::IoError(e) => format!("error fetching git repo: {e}"),
             }
         }
     }
 
-    impl From<io::Error> for FetchOneError {
-        fn from(e: io::Error) -> Self {
-            FetchOneError::IoError(e)
-        }
-    }
     pub trait Repository {
         fn fetch_all(&mut self) -> Result<Vec<GitRepo>, FetchAllError>;
         fn fetch_one(&mut self, path: &Path) -> Result<GitRepo, FetchOneError>;
