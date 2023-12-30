@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::dep::{Dep, MeetResult, MetResult};
 use crate::shell;
 
@@ -21,14 +23,14 @@ impl From<&str> for SessionName {
 
 pub struct Session {
     name: SessionName,
-    path: String,
+    path: PathBuf,
 }
 
 impl Session {
-    pub fn new<S: Into<SessionName>, T: Into<String>>(name: S, path: T) -> Self {
+    pub fn new<S: Into<SessionName>>(name: S, path: PathBuf) -> Self {
         Session {
             name: name.into(),
-            path: path.into(),
+            path,
         }
     }
 }

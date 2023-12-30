@@ -26,7 +26,7 @@ pub fn run(config: Config) -> anyhow::Result<()> {
 
     let name = tmux::SessionName::from(repo.name());
 
-    tmux::Session::new(name.clone(), repo.path()).process()?;
+    tmux::Session::new(name.clone(), repo.path().to_owned()).process()?;
 
     let subcommand = if in_tmux() { CMD_SWITCH } else { CMD_ATTACH };
 
@@ -43,8 +43,8 @@ fn fuzzy_select_repository(root: PathBuf) -> Result<Option<GitRepo>, TmuxError> 
     let mut repository = CachingRepository::new(FileSystemRepository::new(root));
 
     let all_paths = repository.fetch_all().map_err(TmuxError::Fetch)?;
-    let maybe_path =
-        fuzzy_select(all_paths.iter().map(|repo| repo.path())).map_err(TmuxError::Fzf)?;
+    let maybe_path = fuzzy_select(all_paths.iter().map(|repo| repo.path().as_os_str()))
+        .map_err(TmuxError::Fzf)?;
 
-    Ok(maybe_path.and_then(|path| repository.fetch_one_from_cache(&path)))
+    Ok(maybe_path.and_then(|path| repository.fetch_one_from_cache(&path.into())))
 }

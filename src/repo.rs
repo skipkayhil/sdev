@@ -25,7 +25,7 @@ impl From<&OsStr> for GitHost {
 pub struct GitRepo {
     host: GitHost,
     name: String,
-    path: String,
+    path: PathBuf,
 }
 
 pub enum TryFromAbsoluteError {
@@ -81,12 +81,6 @@ impl GitRepo {
             return Err(TryFromFsError::Encoding);
         };
 
-        let path_as_os_string = path.into_os_string();
-        let path = match path_as_os_string.into_string() {
-            Ok(path) => path,
-            Err(_) => return Err(TryFromFsError::Encoding),
-        };
-
         Ok(Self {
             name: name.into(),
             path,
@@ -98,7 +92,7 @@ impl GitRepo {
         &self.name
     }
 
-    pub fn path(&self) -> &str {
+    pub fn path(&self) -> &Path {
         &self.path
     }
 }

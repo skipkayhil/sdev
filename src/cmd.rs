@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::io;
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -18,10 +19,9 @@ pub enum FzfError {
     Write(#[source] io::Error),
 }
 
-pub fn fuzzy_select<S, I>(options: I) -> Result<Option<String>, FzfError>
+pub fn fuzzy_select<'a, T>(options: T) -> Result<Option<String>, FzfError>
 where
-    S: AsRef<str> + std::fmt::Display,
-    I: IntoIterator<Item = S>,
+    T: IntoIterator<Item = &'a OsStr>,
 {
     let mut process = Command::new("fzf-tmux")
         .arg("-p")
@@ -33,7 +33,10 @@ where
     match process.stdin {
         Some(ref mut stdin) => {
             for option in options.into_iter() {
-                writeln!(stdin, "{option}").map_err(FzfError::Write)?
+                stdin
+                    .write(option.as_encoded_bytes())
+                    .map_err(FzfError::Write)?;
+                writeln!(stdin).map_err(FzfError::Write)?;
             }
         }
         None => return Err(FzfError::Pipe),

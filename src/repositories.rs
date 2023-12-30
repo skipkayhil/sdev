@@ -33,7 +33,7 @@ pub mod git_repos {
     }
     pub trait Repository {
         fn fetch_all(&mut self) -> Result<Vec<GitRepo>, FetchAllError>;
-        fn fetch_one(&mut self, path: String) -> Result<GitRepo, FetchOneError>;
+        fn fetch_one(&mut self, path: PathBuf) -> Result<GitRepo, FetchOneError>;
     }
 
     pub struct FileSystemRepository {
@@ -83,16 +83,15 @@ pub mod git_repos {
             Ok(repos)
         }
 
-        fn fetch_one(&mut self, path: String) -> Result<GitRepo, FetchOneError> {
-            let buffer = PathBuf::from(path);
-            GitRepo::try_from_absolute(buffer.clone(), &self.root)
-                .map_err(|_| FetchOneError::UnknownRepo(buffer))
+        fn fetch_one(&mut self, path: PathBuf) -> Result<GitRepo, FetchOneError> {
+            GitRepo::try_from_absolute(path.clone(), &self.root)
+                .map_err(|_| FetchOneError::UnknownRepo(path))
         }
     }
 
     pub struct CachingRepository<T: Repository> {
         repository: T,
-        cache: HashMap<String, GitRepo>,
+        cache: HashMap<PathBuf, GitRepo>,
     }
 
     impl<T> CachingRepository<T>
@@ -106,7 +105,7 @@ pub mod git_repos {
             }
         }
 
-        pub fn fetch_one_from_cache(&self, path: &str) -> Option<GitRepo> {
+        pub fn fetch_one_from_cache(&self, path: &PathBuf) -> Option<GitRepo> {
             self.cache.get(path).cloned()
         }
     }
@@ -127,7 +126,7 @@ pub mod git_repos {
             Ok(self.cache.values().cloned().collect())
         }
 
-        fn fetch_one(&mut self, path: String) -> Result<GitRepo, FetchOneError> {
+        fn fetch_one(&mut self, path: PathBuf) -> Result<GitRepo, FetchOneError> {
             if let Some(repo) = self.cache.get(&path) {
                 return Ok(repo.clone());
             }
