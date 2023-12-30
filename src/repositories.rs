@@ -3,7 +3,7 @@ pub mod git_repos {
     use std::io;
     use std::path::{Path, PathBuf};
 
-    use crate::repo::{GitRepo, TryFromFsError};
+    use crate::repo::{GitRepo, TryFromAbsoluteError, TryFromFsError};
 
     #[derive(thiserror::Error, Debug)]
     pub enum FetchAllError {
@@ -11,17 +11,14 @@ pub mod git_repos {
         ReadRoot(#[source] io::Error),
     }
 
-    #[derive(Debug)]
+    #[derive(thiserror::Error, Debug)]
     pub enum FetchOneError {
-        UnknownRepo(PathBuf),
-    }
-
-    impl From<FetchOneError> for String {
-        fn from(value: FetchOneError) -> Self {
-            match value {
-                FetchOneError::UnknownRepo(p) => format!("unknown git repo: {}", p.display()),
-            }
-        }
+        #[error("unknown git repo: {path}")]
+        UnknownRepo {
+            path: PathBuf,
+            #[source]
+            source: TryFromAbsoluteError,
+        },
     }
 
     pub trait Repository {
@@ -77,8 +74,10 @@ pub mod git_repos {
         }
 
         fn fetch_one(&mut self, path: &Path) -> Result<GitRepo, FetchOneError> {
-            GitRepo::try_from_absolute(path, &self.root)
-                .map_err(|_| FetchOneError::UnknownRepo(path.to_owned()))
+            GitRepo::try_from_absolute(path, &self.root).map_err(|e| FetchOneError::UnknownRepo {
+                source: e,
+                path: path.to_owned(),
+            })
         }
     }
 

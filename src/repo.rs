@@ -28,14 +28,21 @@ pub struct GitRepo {
     path: PathBuf,
 }
 
+#[derive(thiserror::Error, Debug)]
 pub enum TryFromAbsoluteError {
+    #[error("malformed path")]
     InvalidDir,
-    NotInRoot,
+    #[error("path not in root: {0}")]
+    NotInRoot(PathBuf),
+    #[error(transparent)]
     TryFromFsError(TryFromFsError),
 }
 
+#[derive(thiserror::Error, Debug)]
 pub enum TryFromFsError {
+    #[error("repo name is not UTF-8")]
     Encoding,
+    #[error("path is not a git repo")]
     NotARepo(PathBuf),
 }
 
@@ -43,7 +50,7 @@ impl GitRepo {
     pub fn try_from_absolute(path: &Path, root: &PathBuf) -> Result<GitRepo, TryFromAbsoluteError> {
         let host = {
             let Ok(relative_path) = path.strip_prefix(root) else {
-                return Err(TryFromAbsoluteError::NotInRoot);
+                return Err(TryFromAbsoluteError::NotInRoot(root.to_owned()));
             };
 
             let maybe_host = relative_path.components().find_map(|c| match c {
