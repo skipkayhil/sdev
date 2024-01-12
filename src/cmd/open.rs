@@ -3,6 +3,8 @@ pub mod pr {
     use gix::remote::Direction;
     use std::env;
 
+    use crate::shell;
+
     const ORIGIN: &str = "origin";
     const UPSTREAM: &str = "upstream";
 
@@ -41,9 +43,9 @@ pub mod pr {
         type Error = Error;
 
         fn try_from(repo: &gix::Repository) -> Result<Self, Error> {
-            let (remote, remote_type) = if let Ok(remote) = repo.find_remote("upstream") {
+            let (remote, remote_type) = if let Ok(remote) = repo.find_remote(UPSTREAM) {
                 (remote, Remote::Upstream)
-            } else if let Ok(remote) = repo.find_remote("origin") {
+            } else if let Ok(remote) = repo.find_remote(ORIGIN) {
                 (remote, Remote::Origin)
             } else {
                 Err(Error::MissingTargetRemote)?
@@ -126,6 +128,14 @@ pub mod pr {
         let branch = head.name().file_name();
 
         let url = UrlStrategy::try_from(&repo)?.to_url(branch, target);
+
+        if let Some(remote) = head.remote(Direction::Fetch) {
+            // TODO: it would be cool if a "git status" type check could be added here which ensure
+            // the local branch is up to date with the remote branch
+            remote?.name().expect("remote name not persisted?");
+        } else {
+            shell::new!("git", "push", "--set-upstream", ORIGIN, &branch.to_string()).run(true)?;
+        }
 
         println!("Opening {url}");
 
