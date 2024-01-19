@@ -43,29 +43,33 @@ pub mod pr {
         type Error = Error;
 
         fn try_from(repo: &gix::Repository) -> Result<Self, Error> {
-            let (remote, remote_type) = if let Ok(remote) = repo.find_remote(UPSTREAM) {
-                (remote, Remote::Upstream)
-            } else if let Ok(remote) = repo.find_remote(ORIGIN) {
-                (remote, Remote::Origin)
+            let (target_remote, remote_type) = if let Ok(upstream) = repo.find_remote(UPSTREAM) {
+                (upstream, Remote::Upstream)
+            } else if let Ok(origin) = repo.find_remote(ORIGIN) {
+                (origin, Remote::Origin)
             } else {
                 Err(Error::MissingTargetRemote)?
             };
 
-            let url = remote
+            let target_git_url = target_remote
                 .url(Direction::Fetch)
                 .ok_or_else(|| Error::MissingRemoteUrl((&remote_type).into()))?;
-            let host = url.host().ok_or(Error::MissingRemoteHost)?;
+            let target_host = target_git_url.host().ok_or(Error::MissingRemoteHost)?;
 
-            let path = {
-                let utf = url.path.strip_suffix(b".git").unwrap_or(&url.path).to_vec();
-                String::from_utf8(utf).map_err(Error::PathEncoding)?
+            let request_url = {
+                let utf = target_git_url
+                    .path
+                    .strip_suffix(b".git")
+                    .unwrap_or(&target_git_url.path)
+                    .to_vec();
+                let path = String::from_utf8(utf).map_err(Error::PathEncoding)?;
+
+                format!("{}/{}", target_host, path)
             };
 
-            let url_string = format!("{}/{}", host, path);
-
-            Ok(match host {
+            Ok(match target_host {
                 "github.com" => match remote_type {
-                    Remote::Origin => Self::GithubOrigin(url_string),
+                    Remote::Origin => Self::GithubOrigin(request_url),
                     Remote::Upstream => {
                         let Ok(origin) = repo.find_remote(ORIGIN) else {
                             Err(Error::MissingOriginForFork)?
@@ -85,7 +89,7 @@ pub mod pr {
                         };
 
                         Self::GithubUpstream {
-                            url: url_string,
+                            url: request_url,
                             origin,
                         }
                     }
