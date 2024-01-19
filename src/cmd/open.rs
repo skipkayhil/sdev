@@ -34,8 +34,15 @@ pub mod pr {
     }
 
     enum UrlStrategy {
-        GithubOrigin(String),
-        GithubUpstream { url: String, origin: String },
+        GithubOrigin {
+            host: String,
+            path: String,
+        },
+        GithubUpstream {
+            host: String,
+            path: String,
+            origin: String,
+        },
         Unknown,
     }
 
@@ -56,20 +63,14 @@ pub mod pr {
                 .ok_or_else(|| Error::MissingRemoteUrl((&remote_type).into()))?;
             let target_host = target_git_url.host().ok_or(Error::MissingRemoteHost)?;
 
-            let request_url = {
-                let utf = target_git_url
-                    .path
-                    .strip_suffix(b".git")
-                    .unwrap_or(&target_git_url.path)
-                    .to_vec();
-                let path = String::from_utf8(utf).map_err(Error::PathEncoding)?;
-
-                format!("{}/{}", target_host, path)
-            };
+            let target_path = Self::normalized_path(target_git_url)?;
 
             Ok(match target_host {
                 "github.com" => match remote_type {
-                    Remote::Origin => Self::GithubOrigin(request_url),
+                    Remote::Origin => Self::GithubOrigin {
+                        host: target_host.into(),
+                        path: target_path,
+                    },
                     Remote::Upstream => {
                         let Ok(origin) = repo.find_remote(ORIGIN) else {
                             Err(Error::MissingOriginForFork)?
@@ -89,7 +90,8 @@ pub mod pr {
                         };
 
                         Self::GithubUpstream {
-                            url: request_url,
+                            host: target_host.into(),
+                            path: target_path,
                             origin,
                         }
                     }
@@ -102,25 +104,41 @@ pub mod pr {
     impl UrlStrategy {
         fn to_url(&self, branch: &bstr::BStr, target: &Option<String>) -> String {
             match self {
-                Self::GithubOrigin(u) => {
+                Self::GithubOrigin { host, path } => {
                     let target_string = target
                         .as_ref()
                         .map_or("".to_string(), |name| format!("{}...", name));
 
-                    format!("https://{}/pull/{}{}", u, target_string, branch)
+                    format!("https://{}{}/pull/{}{}", host, path, target_string, branch)
                 }
-                Self::GithubUpstream { url, origin } => {
+                Self::GithubUpstream { host, path, origin } => {
                     let target_string = target
                         .as_ref()
                         .map_or("".to_string(), |name| format!("{}...", name));
 
                     format!(
-                        "https://{}/pull/{}{}:{}",
-                        url, target_string, origin, branch
+                        "https://{}{}/pull/{}{}:{}",
+                        host, path, target_string, origin, branch
                     )
                 }
                 _ => todo!(),
             }
+        }
+
+        fn normalized_path(git_url: &gix::Url) -> Result<String, Error> {
+            let utf = git_url
+                .path
+                .strip_suffix(b".git")
+                .unwrap_or(&git_url.path)
+                .to_vec();
+            let path = String::from_utf8(utf).map_err(Error::PathEncoding)?;
+
+            Ok(match git_url.scheme {
+                // SSH Scheme has a : between host/path, so no leading /
+                gix::url::Scheme::Ssh => format!("/{path}"),
+                // All? other Schemes have / between host/path, so path has a leading /
+                _ => path,
+            })
         }
     }
 
