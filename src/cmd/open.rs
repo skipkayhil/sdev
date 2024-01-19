@@ -41,7 +41,7 @@ pub mod pr {
         GithubUpstream {
             host: String,
             path: String,
-            origin: String,
+            source: String,
         },
         Unknown,
     }
@@ -72,15 +72,13 @@ pub mod pr {
                         path: target_path,
                     },
                     Remote::Upstream => {
-                        let Ok(origin) = repo.find_remote(ORIGIN) else {
-                            Err(Error::MissingOriginForFork)?
-                        };
+                        let origin = repo.find_remote(ORIGIN).map_err(|_| Error::MissingOriginForFork)?;
 
                         let url = origin
                             .url(Direction::Fetch)
                             .ok_or_else(|| Error::MissingRemoteUrl(ORIGIN.to_string()))?;
 
-                        let origin = {
+                        let source = {
                             let utf = url.path.strip_suffix(b".git").unwrap_or(&url.path).to_vec();
                             let path = String::from_utf8(utf).map_err(Error::PathEncoding)?;
                             path.split('/')
@@ -92,7 +90,7 @@ pub mod pr {
                         Self::GithubUpstream {
                             host: target_host.into(),
                             path: target_path,
-                            origin,
+                            source,
                         }
                     }
                 },
@@ -111,14 +109,14 @@ pub mod pr {
 
                     format!("https://{}{}/pull/{}{}", host, path, target_string, branch)
                 }
-                Self::GithubUpstream { host, path, origin } => {
+                Self::GithubUpstream { host, path, source } => {
                     let target_string = target
                         .as_ref()
                         .map_or("".to_string(), |name| format!("{}...", name));
 
                     format!(
                         "https://{}{}/pull/{}{}:{}",
-                        host, path, target_string, origin, branch
+                        host, path, target_string, source, branch
                     )
                 }
                 _ => todo!(),
