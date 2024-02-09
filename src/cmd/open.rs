@@ -72,7 +72,9 @@ pub mod pr {
                         path: target_path,
                     },
                     Remote::Upstream => {
-                        let origin = repo.find_remote(ORIGIN).map_err(|_| Error::MissingOriginForFork)?;
+                        let origin = repo
+                            .find_remote(ORIGIN)
+                            .map_err(|_| Error::MissingOriginForFork)?;
 
                         let url = origin
                             .url(Direction::Fetch)
