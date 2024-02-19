@@ -6,6 +6,7 @@ use std::process::{Command, Stdio};
 pub mod clone;
 pub mod open;
 pub mod tmux;
+pub mod z;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FzfError {

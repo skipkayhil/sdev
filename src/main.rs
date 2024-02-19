@@ -28,6 +28,7 @@ enum Commands {
     /// Fuzzy attach to a repo's tmux session (and creates it if necessary)
     #[command(alias("t"))]
     Tmux,
+    Z,
 }
 
 #[derive(Debug, Args)]
@@ -57,6 +58,7 @@ fn main() -> anyhow::Result<()> {
             OpenCommands::Pr { target } => cmd::open::pr::run(target),
         },
         Commands::Tmux => cmd::tmux::run(config),
+        Commands::Z => cmd::z::run(config),
     }
 }
 
