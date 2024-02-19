@@ -1,29 +1,23 @@
-use crossterm::{
-    event::{self, KeyCode, KeyEventKind},
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    ExecutableCommand,
-};
+use crossterm::event::{self, KeyCode, KeyEventKind};
 use nucleo::{
     pattern::{CaseMatching, Normalization},
     Config, Nucleo,
 };
 use ratatui::{
     layout::{Constraint, Layout},
-    prelude::{CrosstermBackend, Line, Style, Stylize, Terminal},
+    prelude::{Line, Style, Stylize},
     widgets::{Block, Borders, List, ListDirection, ListState},
 };
-use std::io::stdout;
 use std::sync::Arc;
 
 use crate::repositories::git_repos::{CachingRepository, FileSystemRepository, Repository};
+use crate::tui::Tui;
 
 const CHEVRON: &str = ">";
 
 pub fn run(config: crate::Config) -> anyhow::Result<()> {
-    enable_raw_mode()?;
-    stdout().execute(EnterAlternateScreen)?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-    terminal.clear()?;
+    let mut tui = Tui::new()?;
+    tui.enter()?;
 
     let mut nucleo = Nucleo::<usize>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
     let injector = nucleo.injector();
@@ -50,7 +44,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
         let _status = nucleo.tick(10);
         let snap = nucleo.snapshot();
 
-        terminal.draw(|frame| {
+        tui.terminal.draw(|frame| {
             let layout = Layout::vertical([Constraint::Percentage(100), Constraint::Min(1)])
                 .split(frame.size());
 
@@ -124,7 +118,5 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
         }
     }
 
-    stdout().execute(LeaveAlternateScreen)?;
-    disable_raw_mode()?;
-    Ok(())
+    Tui::reset()
 }
