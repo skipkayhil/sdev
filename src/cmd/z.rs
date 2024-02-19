@@ -15,12 +15,58 @@ use crate::tui::Tui;
 
 const CHEVRON: &str = ">";
 
+struct App {
+    nucleo: Nucleo<usize>,
+    search: String,
+    state: ListState,
+}
+
+impl App {
+    pub fn new() -> Self {
+        let nucleo = Nucleo::<usize>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
+        let state = ListState::default().with_selected(Some(0));
+
+        Self {
+            nucleo,
+            search: String::new(),
+            state,
+        }
+    }
+
+    pub fn pop_char(&mut self) {
+        self.search.pop();
+        self.nucleo.pattern.reparse(
+            0,
+            &self.search,
+            CaseMatching::Smart,
+            Normalization::Smart,
+            false,
+        );
+    }
+
+    pub fn push_char(&mut self, c: char) {
+        self.search.push(c);
+        self.nucleo.pattern.reparse(
+            0,
+            &self.search,
+            CaseMatching::Smart,
+            Normalization::Smart,
+            true,
+        );
+    }
+
+    pub fn tick(&mut self) {
+        self.nucleo.tick(10);
+    }
+}
+
 pub fn run(config: crate::Config) -> anyhow::Result<()> {
     let mut tui = Tui::new()?;
     tui.enter()?;
 
-    let mut nucleo = Nucleo::<usize>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
-    let injector = nucleo.injector();
+    let mut app = App::new();
+
+    let injector = app.nucleo.injector();
 
     let mut repository = CachingRepository::new(FileSystemRepository::new(config.root));
     let all_paths = repository.fetch_all()?;
@@ -35,19 +81,16 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
         injector.push(i, |dst| dst[0] = path.to_string().into());
     }
 
-    let mut search = String::new();
-    let mut state = ListState::default().with_selected(Some(0));
-
     let padded_chevron = format!("{CHEVRON} ");
 
     loop {
-        let _status = nucleo.tick(10);
-        let snap = nucleo.snapshot();
+        app.tick();
 
         tui.terminal.draw(|frame| {
             let layout = Layout::vertical([Constraint::Percentage(100), Constraint::Min(1)])
                 .split(frame.size());
 
+            let snap = app.nucleo.snapshot();
             let matched_paths: Vec<&str> = snap
                 .matched_items(0..snap.matched_item_count().min(layout[0].height.into()))
                 .map(|item| path_strings[*item.data])
@@ -63,17 +106,20 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
                 .highlight_style(Style::new().bold())
                 .direction(ListDirection::BottomToTop);
 
-            frame.render_stateful_widget(path_list, layout[0], &mut state);
+            frame.render_stateful_widget(path_list, layout[0], &mut app.state);
 
             let prompt = Line::from(vec![
                 padded_chevron.clone().bold().magenta(),
-                search.clone().bold(),
+                app.search.clone().bold(),
             ]);
 
             frame.render_widget(prompt, layout[1]);
 
             // TODO: unwrap because the string length should not exceed u16
-            frame.set_cursor((2 + search.len()).try_into().unwrap(), frame.size().height);
+            frame.set_cursor(
+                (2 + app.search.len()).try_into().unwrap(),
+                frame.size().height,
+            );
         })?;
 
         if event::poll(std::time::Duration::from_millis(16))? {
@@ -81,35 +127,17 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Esc => break,
-                        KeyCode::Char(key) => {
-                            search.push(key);
-                            nucleo.pattern.reparse(
-                                0,
-                                &search,
-                                CaseMatching::Smart,
-                                Normalization::Smart,
-                                true,
-                            );
-                        }
-                        KeyCode::Backspace => {
-                            search.pop();
-                            nucleo.pattern.reparse(
-                                0,
-                                &search,
-                                CaseMatching::Smart,
-                                Normalization::Smart,
-                                false,
-                            );
-                        }
-                        KeyCode::Up => match state.selected() {
-                            None => state.select(Some(0)),
+                        KeyCode::Char(key) => app.push_char(key),
+                        KeyCode::Backspace => app.pop_char(),
+                        KeyCode::Up => match app.state.selected() {
+                            None => app.state.select(Some(0)),
                             Some(i) if i == all_paths.len() - 1 => (),
-                            Some(i) => state.select(Some(i + 1)),
+                            Some(i) => app.state.select(Some(i + 1)),
                         },
-                        KeyCode::Down => match state.selected() {
-                            None => state.select(Some(0)),
+                        KeyCode::Down => match app.state.selected() {
+                            None => app.state.select(Some(0)),
                             Some(0) => (),
-                            Some(i) => state.select(Some(i - 1)),
+                            Some(i) => app.state.select(Some(i - 1)),
                         },
                         _ => (),
                     }
