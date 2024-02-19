@@ -12,6 +12,7 @@ crossterm = "0.27.0"
 gix = "0"
 home = "0.5.9"
 opener = "0.6.1"
+nucleo = "0.3"
 ratatui = "0.26.0"
 thiserror = "1"
 
