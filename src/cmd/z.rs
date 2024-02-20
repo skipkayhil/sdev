@@ -1,3 +1,6 @@
+use std::marker::{Send, Sync};
+use std::sync::Arc;
+
 use crossterm::event::{self, KeyCode, KeyEventKind};
 use nucleo::{
     pattern::{CaseMatching, Normalization},
@@ -8,7 +11,6 @@ use ratatui::{
     prelude::{Line, Style, Stylize},
     widgets::{Block, Borders, List, ListDirection, ListState},
 };
-use std::sync::Arc;
 
 use crate::repositories::git_repos::{CachingRepository, FileSystemRepository, Repository};
 use crate::tui::Tui;
@@ -20,16 +22,16 @@ enum Status {
     Finished(Option<String>),
 }
 
-struct App {
-    nucleo: Nucleo<usize>,
+struct App<T: Send + Sync + 'static> {
+    nucleo: Nucleo<T>,
     search: String,
     state: ListState,
     status: Status,
 }
 
-impl App {
+impl<T: Send + Sync + 'static> App<T> {
     pub fn new() -> Self {
-        let nucleo = Nucleo::<usize>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
+        let nucleo = Nucleo::<T>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
         let state = ListState::default().with_selected(Some(0));
 
         Self {
@@ -101,16 +103,12 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
     let injector = app.nucleo.injector();
 
     let mut repository = CachingRepository::new(FileSystemRepository::new(config.root));
-    let all_paths = repository.fetch_all()?;
-    // TODO: unwrap because paths should all be utf8... but it feels like a lib may help
-    // here
-    let path_strings: Vec<&str> = all_paths
-        .iter()
-        .map(|repo| repo.path().to_str().unwrap())
-        .collect();
+    let all_repos = repository.fetch_all()?;
 
-    for (i, path) in path_strings.iter().enumerate() {
-        injector.push(i, |dst| dst[0] = path.to_string().into());
+    for repo in all_repos.iter() {
+        injector.push(repo.path().to_owned(), |dst| {
+            dst[0] = repo.path().to_string_lossy().into()
+        });
     }
 
     let padded_chevron = format!("{CHEVRON} ");
@@ -123,9 +121,9 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
                 .split(frame.size());
 
             let snap = app.nucleo.snapshot();
-            let matched_paths: Vec<&str> = snap
+            let matched_paths: Vec<String> = snap
                 .matched_items(0..snap.matched_item_count().min(layout[0].height.into()))
-                .map(|item| path_strings[*item.data])
+                .map(|item| item.data.to_string_lossy().into())
                 .collect();
 
             let path_list = List::new(matched_paths)
@@ -163,7 +161,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
                         KeyCode::Backspace => app.pop_char(),
                         KeyCode::Up => match app.state.selected() {
                             None => app.state.select(Some(0)),
-                            Some(i) if i == all_paths.len() - 1 => (),
+                            Some(i) if i == all_repos.len() - 1 => (),
                             Some(i) => app.state.select(Some(i + 1)),
                         },
                         KeyCode::Down => match app.state.selected() {
