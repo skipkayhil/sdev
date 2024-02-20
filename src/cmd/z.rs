@@ -15,10 +15,16 @@ use crate::tui::Tui;
 
 const CHEVRON: &str = ">";
 
+enum Status {
+    Running,
+    Finished(Option<String>),
+}
+
 struct App {
     nucleo: Nucleo<usize>,
     search: String,
     state: ListState,
+    status: Status,
 }
 
 impl App {
@@ -30,6 +36,7 @@ impl App {
             nucleo,
             search: String::new(),
             state,
+            status: Status::Running,
         }
     }
 
@@ -53,6 +60,31 @@ impl App {
             Normalization::Smart,
             true,
         );
+    }
+
+    pub fn abort(&mut self) {
+        self.status = Status::Finished(None)
+    }
+
+    pub fn complete(&mut self) {
+        let selected_string = self
+            .nucleo
+            .snapshot()
+            .get_matched_item(
+                // TODO: first unwrap is because selected is an Option, which will be fixed when List
+                // is replaced with something custom (our selected will always be Some)
+                //
+                // TODO: the second unwrap is because selected is a usize but the matcher wants a u32,
+                // this can also be fixed with a custom List
+                self.state.selected().unwrap().try_into().unwrap(),
+            )
+            .map(|item| item.matcher_columns[0].to_string());
+
+        self.status = Status::Finished(selected_string)
+    }
+
+    pub fn is_running(&self) -> bool {
+        matches!(&self.status, Status::Running)
     }
 
     pub fn tick(&mut self) {
@@ -83,7 +115,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
 
     let padded_chevron = format!("{CHEVRON} ");
 
-    loop {
+    while app.is_running() {
         app.tick();
 
         tui.terminal.draw(|frame| {
@@ -126,7 +158,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
             if let event::Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
-                        KeyCode::Esc => break,
+                        KeyCode::Esc => app.abort(),
                         KeyCode::Char(key) => app.push_char(key),
                         KeyCode::Backspace => app.pop_char(),
                         KeyCode::Up => match app.state.selected() {
@@ -139,6 +171,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
                             Some(0) => (),
                             Some(i) => app.state.select(Some(i - 1)),
                         },
+                        KeyCode::Enter => app.complete(),
                         _ => (),
                     }
                 }
@@ -146,5 +179,11 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
         }
     }
 
-    Tui::reset()
+    Tui::reset()?;
+
+    if let Status::Finished(Some(selected)) = app.status {
+        println!("{selected}");
+    }
+
+    Ok(())
 }
