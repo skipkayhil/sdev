@@ -25,6 +25,7 @@ enum Status {
 struct App<T: Send + Sync + 'static> {
     nucleo: Nucleo<T>,
     search: String,
+    selected: u32,
     state: ListState,
     status: Status,
 }
@@ -37,6 +38,7 @@ impl<T: Send + Sync + 'static> App<T> {
         Self {
             nucleo,
             search: String::new(),
+            selected: 0,
             state,
             status: Status::Running,
         }
@@ -64,6 +66,22 @@ impl<T: Send + Sync + 'static> App<T> {
         );
     }
 
+    pub fn dec_selection(&mut self) {
+        self.selected = self.selected.saturating_sub(1);
+        // TODO: unwrap because List uses usize, custom List will fix that
+        self.state.select(Some(self.selected.try_into().unwrap()));
+    }
+
+    pub fn inc_selection(&mut self) {
+        let incremented_selection = self.selected.saturating_add(1);
+
+        if self.nucleo.snapshot().matched_item_count() > incremented_selection {
+            self.selected = self.selected.saturating_add(1);
+            // TODO: unwrap because List uses usize, custom List will fix that
+            self.state.select(Some(self.selected.try_into().unwrap()));
+        }
+    }
+
     pub fn abort(&mut self) {
         self.status = Status::Finished(None)
     }
@@ -72,14 +90,7 @@ impl<T: Send + Sync + 'static> App<T> {
         let selected_string = self
             .nucleo
             .snapshot()
-            .get_matched_item(
-                // TODO: first unwrap is because selected is an Option, which will be fixed when List
-                // is replaced with something custom (our selected will always be Some)
-                //
-                // TODO: the second unwrap is because selected is a usize but the matcher wants a u32,
-                // this can also be fixed with a custom List
-                self.state.selected().unwrap().try_into().unwrap(),
-            )
+            .get_matched_item(self.selected)
             .map(|item| item.matcher_columns[0].to_string());
 
         self.status = Status::Finished(selected_string)
@@ -90,7 +101,17 @@ impl<T: Send + Sync + 'static> App<T> {
     }
 
     pub fn tick(&mut self) {
-        self.nucleo.tick(10);
+        let status = self.nucleo.tick(10);
+
+        if status.changed && self.nucleo.snapshot().matched_item_count() <= self.selected {
+            self.selected = self
+                .nucleo
+                .snapshot()
+                .matched_item_count()
+                .saturating_sub(1);
+            // TODO: unwrap because List uses usize, custom List will fix that
+            self.state.select(Some(self.selected.try_into().unwrap()));
+        }
     }
 }
 
@@ -159,16 +180,8 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
                         KeyCode::Esc => app.abort(),
                         KeyCode::Char(key) => app.push_char(key),
                         KeyCode::Backspace => app.pop_char(),
-                        KeyCode::Up => match app.state.selected() {
-                            None => app.state.select(Some(0)),
-                            Some(i) if i == all_repos.len() - 1 => (),
-                            Some(i) => app.state.select(Some(i + 1)),
-                        },
-                        KeyCode::Down => match app.state.selected() {
-                            None => app.state.select(Some(0)),
-                            Some(0) => (),
-                            Some(i) => app.state.select(Some(i - 1)),
-                        },
+                        KeyCode::Up => app.inc_selection(),
+                        KeyCode::Down => app.dec_selection(),
                         KeyCode::Enter => app.complete(),
                         _ => (),
                     }
