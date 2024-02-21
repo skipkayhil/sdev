@@ -21,12 +21,13 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Clones a git repository into a standardized path
+    /// Clone a git repository into a standardized path
     Clone {
         repo: GitRepoSource,
     },
+    /// Open a link for the current repository
     Open(OpenArgs),
-    /// Fuzzy attach to a repo's tmux session (and creates it if necessary)
+    /// Fuzzy attach to a repository's tmux session (creating it if necessary)
     #[command(alias("t"))]
     Tmux,
 }

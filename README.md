@@ -1,19 +1,16 @@
 # sdev
 
-Like [minidev](https://github.com/burke/minidev), but WAY worse
-
 ```
 Usage: sdev <COMMAND>
 
 Commands:
-  clone  Clones a git repository into a standardized path
-  tmux   Fuzzy attach to a repo's tmux session (and creates it if necessary)
+  clone  Clone a git repository into a standardized path
+  open   Open a link for the current repository
+  tmux   Fuzzy attach to a repository's tmux session (creating it if necessary)
 
 Options:
-  -h, --help     Print help information
-  -V, --version  Print version information
+  -h, --help     Print help
+  -V, --version  Print version
 ```
-
-`tmux` command depends on `fzf-tmux`
 
 kinda experimental...
