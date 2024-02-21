@@ -13,7 +13,7 @@ use ratatui::{
 };
 
 use crate::dep::{tmux, Dep};
-use crate::repositories::git_repos::{CachingRepository, FileSystemRepository, Repository};
+use crate::repositories::git_repos::{FileSystemRepository, Repository};
 use crate::shell;
 use crate::tui::Tui;
 
@@ -131,13 +131,11 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
 
     let mut app = App::new();
 
-    let injector = app.nucleo.injector();
-
-    let mut repository = CachingRepository::new(FileSystemRepository::new(config.root.clone()));
-    let all_repos = repository.fetch_all()?;
-
-    for repo in all_repos.iter() {
-        injector.push(repo.clone(), |dst| {
+    for repo in FileSystemRepository::new(config.root.clone())
+        .fetch_all()?
+        .iter()
+    {
+        app.nucleo.injector().push(repo.clone(), |dst| {
             dst[0] = repo.path().to_string_lossy().into()
         });
     }

@@ -1,5 +1,5 @@
 pub mod git_repos {
-    use std::collections::{HashMap, VecDeque};
+    use std::collections::VecDeque;
     use std::io;
     use std::path::{Path, PathBuf};
 
@@ -22,8 +22,8 @@ pub mod git_repos {
     }
 
     pub trait Repository {
-        fn fetch_all(&mut self) -> Result<Vec<GitRepo>, FetchAllError>;
-        fn fetch_one(&mut self, path: &Path) -> Result<GitRepo, FetchOneError>;
+        fn fetch_all(&self) -> Result<Vec<GitRepo>, FetchAllError>;
+        fn fetch_one(&self, path: &Path) -> Result<GitRepo, FetchOneError>;
     }
 
     pub struct FileSystemRepository {
@@ -37,7 +37,7 @@ pub mod git_repos {
     }
 
     impl Repository for FileSystemRepository {
-        fn fetch_all(&mut self) -> Result<Vec<GitRepo>, FetchAllError> {
+        fn fetch_all(&self) -> Result<Vec<GitRepo>, FetchAllError> {
             let host_entries = self
                 .root
                 .read_dir()
@@ -73,56 +73,11 @@ pub mod git_repos {
             Ok(repos)
         }
 
-        fn fetch_one(&mut self, path: &Path) -> Result<GitRepo, FetchOneError> {
+        fn fetch_one(&self, path: &Path) -> Result<GitRepo, FetchOneError> {
             GitRepo::try_from_absolute(path, &self.root).map_err(|e| FetchOneError::UnknownRepo {
                 source: e,
                 path: path.to_owned(),
             })
-        }
-    }
-
-    pub struct CachingRepository<T: Repository> {
-        repository: T,
-        cache: HashMap<PathBuf, GitRepo>,
-    }
-
-    impl<T> CachingRepository<T>
-    where
-        T: Repository,
-    {
-        pub fn new(repository: T) -> Self {
-            Self {
-                repository,
-                cache: HashMap::new(),
-            }
-        }
-    }
-
-    impl<T> Repository for CachingRepository<T>
-    where
-        T: Repository,
-    {
-        fn fetch_all(&mut self) -> Result<Vec<GitRepo>, FetchAllError> {
-            if self.cache.is_empty() {
-                let all = self.repository.fetch_all()?;
-
-                for git_repo in all.into_iter() {
-                    self.cache.insert(git_repo.path().into(), git_repo);
-                }
-            }
-
-            Ok(self.cache.values().cloned().collect())
-        }
-
-        fn fetch_one(&mut self, path: &Path) -> Result<GitRepo, FetchOneError> {
-            if let Some(repo) = self.cache.get(path) {
-                return Ok(repo.clone());
-            }
-
-            let repo = self.repository.fetch_one(path)?;
-            self.cache.insert(repo.path().into(), repo.clone());
-
-            Ok(repo)
         }
     }
 }
