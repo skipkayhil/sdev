@@ -1,3 +1,3 @@
 pub mod clone;
 pub mod open;
-pub mod z;
+pub mod tmux;

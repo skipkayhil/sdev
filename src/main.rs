@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Open(open) => match &open.command {
             OpenCommands::Pr { target } => cmd::open::pr::run(target),
         },
-        Commands::Tmux => cmd::z::run(config),
+        Commands::Tmux => cmd::tmux::run(config),
     }
 }
 
