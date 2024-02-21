@@ -12,25 +12,27 @@ use ratatui::{
     widgets::{Block, Borders, List, ListDirection, ListState},
 };
 
+use crate::dep::{tmux, Dep};
 use crate::repositories::git_repos::{CachingRepository, FileSystemRepository, Repository};
+use crate::shell;
 use crate::tui::Tui;
 
 const CHEVRON: &str = ">";
 
-enum Status {
+enum Status<T> {
     Running,
-    Finished(Option<String>),
+    Finished(Option<T>),
 }
 
-struct App<T: Send + Sync + 'static> {
+struct App<T: Clone + Send + Sync + 'static> {
     nucleo: Nucleo<T>,
     search: String,
     selected: u32,
     state: ListState,
-    status: Status,
+    status: Status<T>,
 }
 
-impl<T: Send + Sync + 'static> App<T> {
+impl<T: Clone + Send + Sync + 'static> App<T> {
     pub fn new() -> Self {
         let nucleo = Nucleo::<T>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
         let state = ListState::default().with_selected(Some(0));
@@ -91,7 +93,8 @@ impl<T: Send + Sync + 'static> App<T> {
             .nucleo
             .snapshot()
             .get_matched_item(self.selected)
-            .map(|item| item.matcher_columns[0].to_string());
+            .map(|item| item.data)
+            .cloned();
 
         self.status = Status::Finished(selected_string)
     }
@@ -115,6 +118,13 @@ impl<T: Send + Sync + 'static> App<T> {
     }
 }
 
+const CMD_ATTACH: &str = "attach-session";
+const CMD_SWITCH: &str = "switch-client";
+
+fn in_tmux() -> bool {
+    std::env::var("TMUX").is_ok()
+}
+
 pub fn run(config: crate::Config) -> anyhow::Result<()> {
     let mut tui = Tui::new()?;
     tui.enter()?;
@@ -127,7 +137,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
     let all_repos = repository.fetch_all()?;
 
     for repo in all_repos.iter() {
-        injector.push(repo.path().to_owned(), |dst| {
+        injector.push(repo.clone(), |dst| {
             dst[0] = repo.path().to_string_lossy().into()
         });
     }
@@ -144,7 +154,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
             let snap = app.nucleo.snapshot();
             let matched_paths: Vec<String> = snap
                 .matched_items(0..snap.matched_item_count().min(layout[0].height.into()))
-                .map(|item| item.data.to_string_lossy().into())
+                .map(|item| item.data.path().to_string_lossy().into())
                 .collect();
 
             let path_list = List::new(matched_paths)
@@ -192,9 +202,17 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
 
     Tui::reset()?;
 
-    if let Status::Finished(Some(selected)) = app.status {
-        println!("{selected}");
-    }
+    let Status::Finished(Some(repo)) = app.status else {
+        return Ok(());
+    };
+
+    let name = tmux::SessionName::from(repo.name());
+
+    tmux::Session::new(name.clone(), repo.path().to_owned()).process()?;
+
+    let subcommand = if in_tmux() { CMD_SWITCH } else { CMD_ATTACH };
+
+    shell::new!("tmux", subcommand, "-t", &name.0).run(false)?;
 
     Ok(())
 }
