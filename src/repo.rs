@@ -90,6 +90,10 @@ impl GitRepo {
     pub fn path(&self) -> &Path {
         &self.path
     }
+
+    pub fn relative_path(&self, root: &Path) -> &Path {
+        self.path.strip_prefix(root).unwrap_or(&self.path)
+    }
 }
 
 #[derive(Clone)]

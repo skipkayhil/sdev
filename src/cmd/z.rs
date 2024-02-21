@@ -133,7 +133,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
 
     let injector = app.nucleo.injector();
 
-    let mut repository = CachingRepository::new(FileSystemRepository::new(config.root));
+    let mut repository = CachingRepository::new(FileSystemRepository::new(config.root.clone()));
     let all_repos = repository.fetch_all()?;
 
     for repo in all_repos.iter() {
@@ -154,7 +154,12 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
             let snap = app.nucleo.snapshot();
             let matched_paths: Vec<String> = snap
                 .matched_items(0..snap.matched_item_count().min(layout[0].height.into()))
-                .map(|item| item.data.path().to_string_lossy().into())
+                .map(|item| {
+                    item.data
+                        .relative_path(&config.root)
+                        .to_string_lossy()
+                        .into()
+                })
                 .collect();
 
             let path_list = List::new(matched_paths)
@@ -164,7 +169,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
                         .border_style(Style::new().dark_gray()),
                 )
                 .highlight_symbol(&padded_chevron)
-                .highlight_style(Style::new().bold())
+                .highlight_style(Style::new().bold().white())
                 .direction(ListDirection::BottomToTop);
 
             frame.render_stateful_widget(path_list, layout[0], &mut app.state);
