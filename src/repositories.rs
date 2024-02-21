@@ -96,10 +96,6 @@ pub mod git_repos {
                 cache: HashMap::new(),
             }
         }
-
-        pub fn fetch_one_from_cache(&self, path: &Path) -> Option<GitRepo> {
-            self.cache.get(path).cloned()
-        }
     }
 
     impl<T> Repository for CachingRepository<T>
