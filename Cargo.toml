@@ -9,7 +9,6 @@ edition = "2021"
 anyhow = "1.0.72"
 bstr = "1"
 crossterm = "0.27.0"
-gix = "0"
 home = "0.5.9"
 opener = "0.6.1"
 nucleo = "0.4"
@@ -20,3 +19,7 @@ thiserror = "1"
 version = "4"
 default-features = false
 features = ["std", "derive", "error-context", "help", "usage"]
+
+[dependencies.gix]
+version = "0"
+default-features = false
