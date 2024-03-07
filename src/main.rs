@@ -26,6 +26,7 @@ enum Commands {
         repo: GitRepoSource,
     },
     /// Open a link for the current repository
+    #[command(alias("o"))]
     Open(OpenArgs),
     /// Fuzzy attach to a repository's tmux session (creating it if necessary)
     #[command(alias("t"))]
