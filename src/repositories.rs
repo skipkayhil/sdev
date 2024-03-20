@@ -1,9 +1,9 @@
 pub mod git_repos {
     use std::collections::VecDeque;
     use std::io;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
-    use crate::repo::{GitRepo, TryFromAbsoluteError, TryFromFsError};
+    use crate::repo::{GitRepo, TryFromFsError};
 
     #[derive(thiserror::Error, Debug)]
     pub enum FetchAllError {
@@ -11,19 +11,8 @@ pub mod git_repos {
         ReadRoot(#[source] io::Error),
     }
 
-    #[derive(thiserror::Error, Debug)]
-    pub enum FetchOneError {
-        #[error("unknown git repo: {path}")]
-        UnknownRepo {
-            path: PathBuf,
-            #[source]
-            source: TryFromAbsoluteError,
-        },
-    }
-
     pub trait Repository {
         fn fetch_all(&self) -> Result<Vec<GitRepo>, FetchAllError>;
-        fn fetch_one(&self, path: &Path) -> Result<GitRepo, FetchOneError>;
     }
 
     pub struct FileSystemRepository {
@@ -69,13 +58,6 @@ pub mod git_repos {
             }
 
             Ok(repos)
-        }
-
-        fn fetch_one(&self, path: &Path) -> Result<GitRepo, FetchOneError> {
-            GitRepo::try_from_absolute(path, &self.root).map_err(|e| FetchOneError::UnknownRepo {
-                source: e,
-                path: path.to_owned(),
-            })
         }
     }
 }

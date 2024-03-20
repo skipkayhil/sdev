@@ -12,16 +12,6 @@ pub struct GitRepo {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum TryFromAbsoluteError {
-    #[error("malformed path")]
-    InvalidDir,
-    #[error("path not in root: {0}")]
-    NotInRoot(PathBuf),
-    #[error(transparent)]
-    TryFromFsError(TryFromFsError),
-}
-
-#[derive(thiserror::Error, Debug)]
 pub enum TryFromFsError {
     #[error("repo name is not UTF-8")]
     Encoding,
@@ -30,21 +20,6 @@ pub enum TryFromFsError {
 }
 
 impl GitRepo {
-    pub fn try_from_absolute(path: &Path, root: &PathBuf) -> Result<GitRepo, TryFromAbsoluteError> {
-        let relative_path = path
-            .strip_prefix(root)
-            .map_err(|_| TryFromAbsoluteError::NotInRoot(root.to_owned()))?;
-
-        match relative_path.components().next() {
-            Some(Component::Normal(segment)) => Ok(segment),
-            _ => Err(TryFromAbsoluteError::InvalidDir),
-        }?;
-
-        let name = path.file_name().ok_or(TryFromAbsoluteError::InvalidDir)?;
-
-        Self::try_from_fs(name, path).map_err(TryFromAbsoluteError::TryFromFsError)
-    }
-
     pub fn try_from_fs(raw_name: &OsStr, path: &Path) -> Result<Self, TryFromFsError> {
         path.join(".git")
             .read_dir()
