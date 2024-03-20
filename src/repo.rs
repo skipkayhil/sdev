@@ -1,7 +1,6 @@
 use bstr::ByteSlice;
 use gix::url::{Scheme, Url};
 
-use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
@@ -11,27 +10,9 @@ pub struct GitRepo {
     path: PathBuf,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum TryFromFsError {
-    #[error("repo name is not UTF-8")]
-    Encoding,
-    #[error("path is not a git repo")]
-    NotARepo,
-}
-
 impl GitRepo {
-    pub fn try_from_fs(raw_name: &OsStr, path: &Path) -> Result<Self, TryFromFsError> {
-        path.join(".git")
-            .read_dir()
-            .map_err(|_| TryFromFsError::NotARepo)?;
-
-        raw_name
-            .to_str()
-            .ok_or(TryFromFsError::Encoding)
-            .map(|name| Self {
-                name: name.into(),
-                path: path.to_owned(),
-            })
+    pub fn new(name: String, path: PathBuf) -> Self {
+        Self { name, path }
     }
 
     pub fn name(&self) -> &str {

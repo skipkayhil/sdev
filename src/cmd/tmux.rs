@@ -132,7 +132,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
     let mut app = App::new();
 
     for repo in FileSystemRepository::new(config.root.clone())
-        .fetch_all()?
+        .fetch_all()
         .iter()
     {
         app.nucleo.injector().push(repo.clone(), |dst| {
