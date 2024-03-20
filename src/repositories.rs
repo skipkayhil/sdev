@@ -48,8 +48,6 @@ pub mod git_repos {
             let mut repos = Vec::new();
 
             for host_entry in host_entries {
-                let host = host_entry.file_name();
-
                 if let Ok(repo_iter) = host_entry.path().read_dir() {
                     queue.extend(repo_iter.filter_map(Result::ok))
                 }
@@ -58,7 +56,7 @@ pub mod git_repos {
                     let name = dir_entry.file_name();
                     let path = dir_entry.path();
 
-                    match GitRepo::try_from_fs(&name, &path, &host) {
+                    match GitRepo::try_from_fs(&name, &path) {
                         Ok(repo) => repos.push(repo),
                         Err(TryFromFsError::NotARepo) => {
                             if let Ok(dir_iter) = path.read_dir() {

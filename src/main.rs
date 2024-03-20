@@ -22,9 +22,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Clone a git repository into a standardized path
-    Clone {
-        repo: GitRepoSource,
-    },
+    Clone { repo: GitRepoSource },
     /// Open a link for the current repository
     #[command(alias("o"))]
     Open(OpenArgs),

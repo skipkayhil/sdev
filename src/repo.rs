@@ -6,24 +6,7 @@ use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
 #[derive(Clone)]
-enum GitHost {
-    Github,
-    Other,
-}
-
-impl From<&OsStr> for GitHost {
-    fn from(value: &OsStr) -> Self {
-        if value == "github.com" {
-            Self::Github
-        } else {
-            Self::Other
-        }
-    }
-}
-
-#[derive(Clone)]
 pub struct GitRepo {
-    host: GitHost,
     name: String,
     path: PathBuf,
 }
@@ -48,27 +31,21 @@ pub enum TryFromFsError {
 
 impl GitRepo {
     pub fn try_from_absolute(path: &Path, root: &PathBuf) -> Result<GitRepo, TryFromAbsoluteError> {
-        let host = {
-            let relative_path = path
-                .strip_prefix(root)
-                .map_err(|_| TryFromAbsoluteError::NotInRoot(root.to_owned()))?;
+        let relative_path = path
+            .strip_prefix(root)
+            .map_err(|_| TryFromAbsoluteError::NotInRoot(root.to_owned()))?;
 
-            match relative_path.components().next() {
-                Some(Component::Normal(segment)) => Ok(segment),
-                _ => Err(TryFromAbsoluteError::InvalidDir),
-            }?
-        };
+        match relative_path.components().next() {
+            Some(Component::Normal(segment)) => Ok(segment),
+            _ => Err(TryFromAbsoluteError::InvalidDir),
+        }?;
 
         let name = path.file_name().ok_or(TryFromAbsoluteError::InvalidDir)?;
 
-        Self::try_from_fs(name, path, host).map_err(TryFromAbsoluteError::TryFromFsError)
+        Self::try_from_fs(name, path).map_err(TryFromAbsoluteError::TryFromFsError)
     }
 
-    pub fn try_from_fs(
-        raw_name: &OsStr,
-        path: &Path,
-        host_domain: &OsStr,
-    ) -> Result<Self, TryFromFsError> {
+    pub fn try_from_fs(raw_name: &OsStr, path: &Path) -> Result<Self, TryFromFsError> {
         path.join(".git")
             .read_dir()
             .map_err(|_| TryFromFsError::NotARepo)?;
@@ -79,7 +56,6 @@ impl GitRepo {
             .map(|name| Self {
                 name: name.into(),
                 path: path.to_owned(),
-                host: host_domain.into(),
             })
     }
 
