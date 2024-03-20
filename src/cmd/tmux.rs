@@ -2,6 +2,7 @@ use std::marker::{Send, Sync};
 use std::sync::Arc;
 
 use crossterm::event::{self, KeyCode, KeyEventKind};
+use jwalk::WalkDirGeneric;
 use nucleo::{
     pattern::{CaseMatching, Normalization},
     Config, Nucleo,
@@ -13,7 +14,7 @@ use ratatui::{
 };
 
 use crate::dep::{tmux, Dep};
-use crate::repositories::git_repos::{FileSystemRepository, Repository};
+use crate::repo::GitRepo;
 use crate::shell;
 use crate::tui::Tui;
 
@@ -131,14 +132,32 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
 
     let mut app = App::new();
 
-    for repo in FileSystemRepository::new(config.root.clone())
-        .fetch_all()
-        .iter()
     {
-        app.nucleo.injector().push(repo.clone(), |dst| {
-            dst[0] = repo.path().to_string_lossy().into()
-        });
-    }
+        let walk_dir = WalkDirGeneric::<((), bool)>::new(&config.root).process_read_dir(
+            |_depth, _path, _read_dir_state, children| {
+                for dir_entry in children.iter_mut().flatten() {
+                    if dir_entry.path().join(".git").read_dir().is_ok() {
+                        dir_entry.read_children_path = None;
+                        dir_entry.client_state = true;
+                    }
+                }
+            },
+        );
+
+        for dir_entry in walk_dir.into_iter().flatten() {
+            if !dir_entry.client_state {
+                continue;
+            };
+
+            if let Some(name) = dir_entry.file_name.to_str() {
+                let repo = GitRepo::new(name.into(), dir_entry.path());
+
+                app.nucleo.injector().push(repo.clone(), |dst| {
+                    dst[0] = repo.path().to_string_lossy().into()
+                });
+            }
+        }
+    };
 
     let padded_chevron = format!("{CHEVRON} ");
 

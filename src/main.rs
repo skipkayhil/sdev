@@ -5,7 +5,6 @@ mod cmd;
 mod config;
 mod dep;
 mod repo;
-mod repositories;
 mod shell;
 mod tui;
 
