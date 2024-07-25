@@ -11,9 +11,9 @@ bstr = "1"
 crossterm = "0.27.0"
 home = "0.5.9"
 jwalk = "0.8.1"
-opener = "0.6.1"
-nucleo = "0.4"
-ratatui = "0.26.0"
+opener = "0.7.1"
+nucleo = "0.5"
+ratatui = "0.27.0"
 thiserror = "1"
 
 [dependencies.clap]

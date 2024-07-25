@@ -152,8 +152,8 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
             if let Some(name) = dir_entry.file_name.to_str() {
                 let repo = GitRepo::new(name.into(), dir_entry.path());
 
-                app.nucleo.injector().push(repo.clone(), |dst| {
-                    dst[0] = repo.path().to_string_lossy().into()
+                app.nucleo.injector().push(repo, |repo_ref, dst| {
+                    dst[0] = repo_ref.path().to_string_lossy().into()
                 });
             }
         }
