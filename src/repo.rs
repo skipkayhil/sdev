@@ -33,7 +33,7 @@ pub enum GitRepoSource {
     Name(String),
     Path(String),
     Url {
-        url: String,
+        url: Url,
         host: String,
         path: PathBuf,
     },
@@ -78,7 +78,7 @@ impl FromStr for GitRepoSource {
                 };
 
                 Ok(GitRepoSource::Url {
-                    url: s.to_string(),
+                    url: url.clone(),
                     host: host.to_string(),
                     path: relative_path,
                 })
@@ -126,7 +126,7 @@ mod git_repo_source_tests {
         let repo: GitRepoSource = "https://github.com/skipkayhil/sdev".parse().unwrap();
 
         assert!(
-            matches!(repo, GitRepoSource::Url { url, .. } if url.as_str() == "https://github.com/skipkayhil/sdev".to_string())
+            matches!(repo, GitRepoSource::Url { url, .. } if url.to_string() == "https://github.com/skipkayhil/sdev".to_string())
         );
     }
 

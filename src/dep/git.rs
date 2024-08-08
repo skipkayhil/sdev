@@ -1,14 +1,17 @@
 use crate::dep::{Dep, MeetResult, MetResult};
 use crate::shell;
+
 use std::path::PathBuf;
 
+use gix::Url;
+
 pub struct Clone {
-    url: String,
+    url: Url,
     path: PathBuf,
 }
 
 impl Clone {
-    pub fn new(url: String, path: PathBuf) -> Self {
+    pub fn new(url: Url, path: PathBuf) -> Self {
         Clone { url, path }
     }
 }
@@ -19,7 +22,7 @@ impl Dep for Clone {
     }
 
     fn meet(&self) -> MeetResult {
-        shell::new!("git", "clone", &self.url, &self.path).run(true)?;
+        shell::new!("git", "clone", &self.url.to_string(), &self.path).run(true)?;
 
         Ok(())
     }

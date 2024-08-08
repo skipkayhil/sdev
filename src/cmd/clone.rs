@@ -1,5 +1,8 @@
 use std::path::{Path, PathBuf};
 
+use gix::url::Scheme;
+use gix::Url;
+
 use crate::dep::git::Clone;
 use crate::dep::Dep;
 use crate::repo::GitRepoSource;
@@ -14,13 +17,29 @@ pub fn run(source: &GitRepoSource, config: &Config) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn url_for(source: &GitRepoSource, config: &Config) -> String {
+fn url_for(source: &GitRepoSource, config: &Config) -> Url {
     match source {
-        GitRepoSource::Name(s) => {
-            format!("git@{}:{}/{s}.git", config.host, config.user)
-        }
-        GitRepoSource::Path(s) => format!("git@{}:{s}.git", config.host),
-        GitRepoSource::Url { url, .. } => url.to_string(),
+        GitRepoSource::Name(s) => Url::from_parts(
+            Scheme::Ssh,
+            Some("git".to_string()),
+            None,
+            Some(config.host.clone()),
+            None,
+            format!("{}/{s}.git", config.user).into(),
+            true,
+        )
+        .expect("error constructing repo URL"),
+        GitRepoSource::Path(s) => Url::from_parts(
+            Scheme::Ssh,
+            Some("git".to_string()),
+            None,
+            Some(config.host.clone()),
+            None,
+            format!("{s}.git").into(),
+            true,
+        )
+        .expect("error constructing repo URL"),
+        GitRepoSource::Url { url, .. } => url.clone(),
     }
 }
 
@@ -80,7 +99,7 @@ mod tests {
             user: "skipkayhil".to_string(),
         };
 
-        assert_eq!(expected_url, url_for(&source, &config));
+        assert_eq!(expected_url, url_for(&source, &config).to_string());
         assert_eq!(PathBuf::from(expected_path), path_for(&source, &config));
     }
 }
