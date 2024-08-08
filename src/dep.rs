@@ -1,11 +1,14 @@
-use crate::shell::ShellError;
-
 pub mod git;
 pub mod tmux;
 
+type Unmeetable = anyhow::Error;
 type MetResult = Result<Status, Unmeetable>;
 type MeetResult = Result<(), Unmeetable>;
 type Reqs = Vec<Box<dyn Dep>>;
+
+#[derive(thiserror::Error, Debug)]
+#[error("dep is unmet after meet")]
+struct UnmetAfterMeet;
 
 pub enum Status {
     Met,
@@ -56,14 +59,6 @@ mod status_tests {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
-#[error("unmeetable")]
-pub enum Unmeetable {
-    #[error("dep is unmet after meet")]
-    UnmetAfterMeet,
-    Shell(#[from] ShellError),
-}
-
 pub trait Dep {
     fn met(&self) -> MetResult;
     fn meet(&self) -> MeetResult;
@@ -92,7 +87,7 @@ pub trait Dep {
         self.meet()?;
 
         match self.met()? {
-            Status::Unmet => Err(Unmeetable::UnmetAfterMeet),
+            Status::Unmet => Err(UnmetAfterMeet)?,
             Status::Met => Ok(()),
         }
     }
@@ -101,6 +96,7 @@ pub trait Dep {
 #[cfg(test)]
 mod dep_tests {
     use super::*;
+    use anyhow::bail;
 
     const MET: MetResult = Ok(Status::Met);
     const UNMET: MetResult = Ok(Status::Unmet);
@@ -124,9 +120,7 @@ mod dep_tests {
     struct RaisingMetDep;
     impl Dep for RaisingMetDep {
         fn met(&self) -> MetResult {
-            // UnmetAfterMeet won't really be raised here, but it's easier to mock than creating a
-            // nested ShellError and io::Error
-            Err(Unmeetable::UnmetAfterMeet)
+            bail!("error during met")
         }
 
         fn meet(&self) -> MeetResult {
