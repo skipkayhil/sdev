@@ -24,6 +24,7 @@ features = ["std", "derive", "error-context", "help", "usage"]
 [dependencies.gix]
 version = "0"
 default-features = false
+features = ["blocking-network-client", "max-performance-safe", "worktree-mutation"]
 
 [dependencies.gix-features]
 version = "0"
