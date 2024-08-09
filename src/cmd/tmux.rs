@@ -166,7 +166,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
 
         tui.terminal.draw(|frame| {
             let layout = Layout::vertical([Constraint::Percentage(100), Constraint::Min(1)])
-                .split(frame.size());
+                .split(frame.area());
 
             let snap = app.nucleo.snapshot();
             let matched_paths: Vec<String> = snap
@@ -199,10 +199,10 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
             frame.render_widget(prompt, layout[1]);
 
             // TODO: unwrap because the string length should not exceed u16
-            frame.set_cursor(
+            frame.set_cursor_position((
                 (2 + app.search.len()).try_into().unwrap(),
-                frame.size().height,
-            );
+                frame.area().height,
+            ));
         })?;
 
         if event::poll(std::time::Duration::from_millis(16))? {
