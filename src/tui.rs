@@ -1,7 +1,7 @@
 use std::io::stderr;
 use std::panic;
 
-use crossterm::terminal;
+use ratatui::crossterm::{execute, terminal};
 
 use ratatui::{backend::CrosstermBackend, Terminal};
 
@@ -19,7 +19,7 @@ impl Tui {
 
     pub fn enter(&mut self) -> anyhow::Result<()> {
         terminal::enable_raw_mode()?;
-        crossterm::execute!(std::io::stderr(), terminal::EnterAlternateScreen,)?;
+        execute!(std::io::stderr(), terminal::EnterAlternateScreen,)?;
 
         // In case we panic, set a hook to reset the terminal
         let panic_hook = panic::take_hook();
@@ -36,7 +36,7 @@ impl Tui {
 
     pub fn reset() -> anyhow::Result<()> {
         terminal::disable_raw_mode()?;
-        crossterm::execute!(std::io::stderr(), terminal::LeaveAlternateScreen,)?;
+        execute!(std::io::stderr(), terminal::LeaveAlternateScreen,)?;
         Ok(())
     }
 }

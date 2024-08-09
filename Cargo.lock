@@ -1526,7 +1526,6 @@ dependencies = [
  "anyhow",
  "bstr",
  "clap",
- "crossterm",
  "gix",
  "gix-features",
  "home",

@@ -1,12 +1,12 @@
 use std::marker::{Send, Sync};
 use std::sync::Arc;
 
-use crossterm::event::{self, KeyCode, KeyEventKind};
 use jwalk::WalkDirGeneric;
 use nucleo::{
     pattern::{CaseMatching, Normalization},
     Config, Nucleo,
 };
+use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::{
     layout::{Constraint, Layout},
     prelude::{Line, Style, Stylize},
