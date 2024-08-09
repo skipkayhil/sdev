@@ -1,4 +1,3 @@
-use std::marker::{Send, Sync};
 use std::sync::Arc;
 
 use jwalk::WalkDirGeneric;
@@ -7,38 +6,36 @@ use nucleo::{
     Config, Nucleo,
 };
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
-use ratatui::{
-    layout::{Constraint, Layout},
-    prelude::{Line, Style, Stylize},
-    widgets::{Block, Borders, List, ListDirection, ListState},
-};
+use ratatui::widgets::ListState;
 
 use crate::dep::{tmux, Dep};
 use crate::repo::GitRepo;
 use crate::shell;
 use crate::tui::Tui;
 
-const CHEVRON: &str = ">";
+mod ui;
 
-enum Status<T> {
+enum Status {
     Running,
-    Finished(Option<T>),
+    Finished(Option<GitRepo>),
 }
 
-struct App<T: Clone + Send + Sync + 'static> {
-    nucleo: Nucleo<T>,
+struct App {
+    config: crate::Config,
+    nucleo: Nucleo<GitRepo>,
     search: String,
     selected: u32,
     state: ListState,
-    status: Status<T>,
+    status: Status,
 }
 
-impl<T: Clone + Send + Sync + 'static> App<T> {
-    pub fn new() -> Self {
-        let nucleo = Nucleo::<T>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
+impl App {
+    pub fn new(config: crate::Config) -> Self {
+        let nucleo = Nucleo::<GitRepo>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
         let state = ListState::default().with_selected(Some(0));
 
         Self {
+            config,
             nucleo,
             search: String::new(),
             selected: 0,
@@ -130,10 +127,10 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
     let mut tui = Tui::new()?;
     tui.enter()?;
 
-    let mut app = App::new();
+    let mut app = App::new(config);
 
     {
-        let walk_dir = WalkDirGeneric::<((), bool)>::new(&config.root).process_read_dir(
+        let walk_dir = WalkDirGeneric::<((), bool)>::new(&app.config.root).process_read_dir(
             |_depth, _path, _read_dir_state, children| {
                 for dir_entry in children.iter_mut().flatten() {
                     if dir_entry.path().join(".git").read_dir().is_ok() {
@@ -159,51 +156,10 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
         }
     };
 
-    let padded_chevron = format!("{CHEVRON} ");
-
     while app.is_running() {
         app.tick();
 
-        tui.terminal.draw(|frame| {
-            let layout = Layout::vertical([Constraint::Percentage(100), Constraint::Min(1)])
-                .split(frame.area());
-
-            let snap = app.nucleo.snapshot();
-            let matched_paths: Vec<String> = snap
-                .matched_items(0..snap.matched_item_count().min(layout[0].height.into()))
-                .map(|item| {
-                    item.data
-                        .relative_path(&config.root)
-                        .to_string_lossy()
-                        .into()
-                })
-                .collect();
-
-            let path_list = List::new(matched_paths)
-                .block(
-                    Block::default()
-                        .borders(Borders::BOTTOM)
-                        .border_style(Style::new().dark_gray()),
-                )
-                .highlight_symbol(&padded_chevron)
-                .highlight_style(Style::new().bold().white())
-                .direction(ListDirection::BottomToTop);
-
-            frame.render_stateful_widget(path_list, layout[0], &mut app.state);
-
-            let prompt = Line::from(vec![
-                padded_chevron.clone().bold().magenta(),
-                app.search.clone().bold(),
-            ]);
-
-            frame.render_widget(prompt, layout[1]);
-
-            // TODO: unwrap because the string length should not exceed u16
-            frame.set_cursor_position((
-                (2 + app.search.len()).try_into().unwrap(),
-                frame.area().height,
-            ));
-        })?;
+        tui.terminal.draw(|frame| ui::render(&mut app, frame))?;
 
         if event::poll(std::time::Duration::from_millis(16))? {
             if let event::Event::Key(key) = event::read()? {
