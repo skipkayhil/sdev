@@ -1,3 +1,4 @@
+use std::io;
 use std::sync::Arc;
 
 use jwalk::WalkDirGeneric;
@@ -11,7 +12,7 @@ use ratatui::widgets::ListState;
 use crate::dep::{tmux, Dep};
 use crate::repo::GitRepo;
 use crate::shell;
-use crate::tui::Tui;
+use crate::tui::{CrosstermTerminal, Tui};
 
 mod ui;
 
@@ -114,6 +115,59 @@ impl App {
             self.state.select(Some(self.selected.try_into().unwrap()));
         }
     }
+
+    pub fn run(&mut self, terminal: &mut CrosstermTerminal) -> io::Result<()> {
+        {
+            let walk_dir = WalkDirGeneric::<((), bool)>::new(&self.config.root).process_read_dir(
+                |_depth, _path, _read_dir_state, children| {
+                    for dir_entry in children.iter_mut().flatten() {
+                        if dir_entry.path().join(".git").read_dir().is_ok() {
+                            dir_entry.read_children_path = None;
+                            dir_entry.client_state = true;
+                        }
+                    }
+                },
+            );
+
+            for dir_entry in walk_dir.into_iter().flatten() {
+                if !dir_entry.client_state {
+                    continue;
+                };
+
+                if let Some(name) = dir_entry.file_name.to_str() {
+                    let repo = GitRepo::new(name.into(), dir_entry.path());
+
+                    self.nucleo.injector().push(repo, |repo_ref, dst| {
+                        dst[0] = repo_ref.path().to_string_lossy().into()
+                    });
+                }
+            }
+        };
+
+        while self.is_running() {
+            self.tick();
+
+            terminal.draw(|frame| ui::render(self, frame))?;
+
+            if event::poll(std::time::Duration::from_millis(16))? {
+                if let event::Event::Key(key) = event::read()? {
+                    if key.kind == KeyEventKind::Press {
+                        match key.code {
+                            KeyCode::Esc => self.abort(),
+                            KeyCode::Char(key) => self.push_char(key),
+                            KeyCode::Backspace => self.pop_char(),
+                            KeyCode::Up => self.inc_selection(),
+                            KeyCode::Down => self.dec_selection(),
+                            KeyCode::Enter => self.complete(),
+                            _ => (),
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 const CMD_ATTACH: &str = "attach-session";
@@ -128,57 +182,12 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
     tui.enter()?;
 
     let mut app = App::new(config);
-
-    {
-        let walk_dir = WalkDirGeneric::<((), bool)>::new(&app.config.root).process_read_dir(
-            |_depth, _path, _read_dir_state, children| {
-                for dir_entry in children.iter_mut().flatten() {
-                    if dir_entry.path().join(".git").read_dir().is_ok() {
-                        dir_entry.read_children_path = None;
-                        dir_entry.client_state = true;
-                    }
-                }
-            },
-        );
-
-        for dir_entry in walk_dir.into_iter().flatten() {
-            if !dir_entry.client_state {
-                continue;
-            };
-
-            if let Some(name) = dir_entry.file_name.to_str() {
-                let repo = GitRepo::new(name.into(), dir_entry.path());
-
-                app.nucleo.injector().push(repo, |repo_ref, dst| {
-                    dst[0] = repo_ref.path().to_string_lossy().into()
-                });
-            }
-        }
-    };
-
-    while app.is_running() {
-        app.tick();
-
-        tui.terminal.draw(|frame| ui::render(&mut app, frame))?;
-
-        if event::poll(std::time::Duration::from_millis(16))? {
-            if let event::Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Esc => app.abort(),
-                        KeyCode::Char(key) => app.push_char(key),
-                        KeyCode::Backspace => app.pop_char(),
-                        KeyCode::Up => app.inc_selection(),
-                        KeyCode::Down => app.dec_selection(),
-                        KeyCode::Enter => app.complete(),
-                        _ => (),
-                    }
-                }
-            }
-        }
-    }
+    let app_result = app.run(&mut tui.terminal);
 
     Tui::reset()?;
+
+    // Ensure the terminal is reset before possibly returning early
+    app_result?;
 
     let Status::Finished(Some(repo)) = app.status else {
         return Ok(());
