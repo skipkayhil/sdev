@@ -5,15 +5,12 @@ use gix::interrupt::IS_INTERRUPTED;
 use gix::progress::Discard;
 use gix::Url;
 use ratatui::{
-    backend::CrosstermBackend,
-    crossterm,
     prelude::{Line, Stylize, Widget},
     widgets::Paragraph,
-    Terminal, TerminalOptions, Viewport,
+    DefaultTerminal, TerminalOptions, Viewport,
 };
 
 use crate::dep::{Dep, MeetResult, MetResult};
-use crate::tui;
 
 pub struct Clone {
     url: Url,
@@ -25,7 +22,7 @@ impl Clone {
         Clone { url, path }
     }
 
-    fn run(&self, terminal: &mut tui::CrosstermTerminal) -> MeetResult {
+    fn run(&self, terminal: &mut DefaultTerminal) -> MeetResult {
         terminal.insert_before(1, |buf| {
             Line::from(vec!["src".dark_gray(), format!(" {}", &self.url).into()])
                 .render(buf.area, buf);
@@ -60,11 +57,7 @@ impl Clone {
         prepare_checkout.main_worktree(Discard, &IS_INTERRUPTED)?;
 
         terminal.insert_before(1, |buf| {
-            Paragraph::new(Line::from(vec![
-                "✓".green(),
-                " cloned".into(),
-            ]))
-            .render(buf.area, buf);
+            Paragraph::new(Line::from(vec!["✓".green(), " cloned".into()])).render(buf.area, buf);
         })?;
 
         Ok(())
@@ -77,18 +70,13 @@ impl Dep for Clone {
     }
 
     fn meet(&self) -> MeetResult {
-        crossterm::terminal::enable_raw_mode()?;
-
-        let mut terminal = Terminal::with_options(
-            CrosstermBackend::new(std::io::stderr()),
-            TerminalOptions {
-                viewport: Viewport::Inline(5),
-            },
-        )?;
+        let mut terminal = ratatui::init_with_options(TerminalOptions {
+            viewport: Viewport::Inline(5),
+        });
 
         let result = self.run(&mut terminal);
 
-        crossterm::terminal::disable_raw_mode()?;
+        ratatui::restore();
 
         result
     }

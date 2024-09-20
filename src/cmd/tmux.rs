@@ -7,12 +7,11 @@ use nucleo::{
     Config, Nucleo,
 };
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
-use ratatui::widgets::ListState;
+use ratatui::{widgets::ListState, DefaultTerminal};
 
 use crate::dep::{tmux, Dep};
 use crate::repo::GitRepo;
 use crate::shell;
-use crate::tui::{CrosstermTerminal, Tui};
 
 mod ui;
 
@@ -116,7 +115,7 @@ impl App {
         }
     }
 
-    pub fn run(&mut self, terminal: &mut CrosstermTerminal) -> io::Result<()> {
+    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         {
             let walk_dir = WalkDirGeneric::<((), bool)>::new(&self.config.root).process_read_dir(
                 |_depth, _path, _read_dir_state, children| {
@@ -178,13 +177,12 @@ fn in_tmux() -> bool {
 }
 
 pub fn run(config: crate::Config) -> anyhow::Result<()> {
-    let mut tui = Tui::new()?;
-    tui.enter()?;
+    let mut terminal = ratatui::init();
 
     let mut app = App::new(config);
-    let app_result = app.run(&mut tui.terminal);
+    let app_result = app.run(&mut terminal);
 
-    Tui::reset()?;
+    ratatui::restore();
 
     // Ensure the terminal is reset before possibly returning early
     app_result?;
