@@ -137,7 +137,10 @@ impl App {
                     let repo = GitRepo::new(name.into(), dir_entry.path());
 
                     self.nucleo.injector().push(repo, |repo_ref, dst| {
-                        dst[0] = repo_ref.path().to_string_lossy().into()
+                        dst[0] = repo_ref
+                            .relative_path(&self.config.root)
+                            .to_string_lossy()
+                            .into()
                     });
                 }
             }
