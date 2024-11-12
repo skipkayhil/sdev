@@ -1,10 +1,10 @@
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use jwalk::WalkDirGeneric;
 use nucleo::{
     pattern::{CaseMatching, Normalization},
-    Config, Nucleo,
+    Config, Matcher, Nucleo,
 };
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::{widgets::ListState, DefaultTerminal};
@@ -14,6 +14,8 @@ use crate::repo::GitRepo;
 use crate::shell;
 
 mod ui;
+
+pub static MATCHER: LazyLock<Mutex<Matcher>> = LazyLock::new(|| Mutex::new(Matcher::default()));
 
 enum Status {
     Running,
