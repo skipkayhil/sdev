@@ -13,7 +13,7 @@ idna_adapter = "~1.0.0"
 jwalk = "0.8.1"
 opener = "0.7.1"
 nucleo = "0.5"
-ratatui = "0.28.0"
+ratatui = "0.29.0"
 thiserror = "2"
 
 [dependencies.clap]
