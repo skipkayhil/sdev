@@ -1,12 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use gix::url::Scheme;
 use gix::Url;
+use gix::url::Scheme;
 
-use crate::dep::git::Clone;
-use crate::dep::Dep;
-use crate::repo::GitRepoSource;
 use crate::Config;
+use crate::dep::Dep;
+use crate::dep::git::Clone;
+use crate::repo::GitRepoSource;
 
 pub fn run(source: &GitRepoSource, config: &Config) -> anyhow::Result<()> {
     let url = url_for(source, config);

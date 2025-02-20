@@ -1,13 +1,13 @@
 use std::fs;
 use std::path::PathBuf;
 
+use gix::Url;
 use gix::interrupt::IS_INTERRUPTED;
 use gix::progress::Discard;
-use gix::Url;
 use ratatui::{
+    DefaultTerminal, TerminalOptions, Viewport,
     prelude::{Line, Stylize, Widget},
     widgets::Paragraph,
-    DefaultTerminal, TerminalOptions, Viewport,
 };
 
 use crate::dep::{Dep, MeetResult, MetResult};

@@ -1,8 +1,8 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout},
     prelude::{Color, Line, Span, Style, Stylize},
     widgets::{Block, Borders, List, ListDirection},
-    Frame,
 };
 
 use crate::cmd::tmux::{App, MATCHER};

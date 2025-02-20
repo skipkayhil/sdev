@@ -28,11 +28,7 @@ impl Status {
 
 impl From<bool> for Status {
     fn from(b: bool) -> Self {
-        if b {
-            Status::Met
-        } else {
-            Status::Unmet
-        }
+        if b { Status::Met } else { Status::Unmet }
     }
 }
 

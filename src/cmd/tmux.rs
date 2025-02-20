@@ -3,13 +3,13 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use jwalk::WalkDirGeneric;
 use nucleo::{
-    pattern::{CaseMatching, Normalization},
     Config, Matcher, Nucleo,
+    pattern::{CaseMatching, Normalization},
 };
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
-use ratatui::{widgets::ListState, DefaultTerminal};
+use ratatui::{DefaultTerminal, widgets::ListState};
 
-use crate::dep::{tmux, Dep};
+use crate::dep::{Dep, tmux};
 use crate::repo::GitRepo;
 use crate::shell;
 
