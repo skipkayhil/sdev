@@ -1,4 +1,5 @@
 use std::io;
+use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, Mutex};
 
 use jwalk::WalkDirGeneric;
@@ -130,6 +131,8 @@ impl App {
                 },
             );
 
+            let mut root = PathBuf::new();
+
             for dir_entry in walk_dir.into_iter().flatten() {
                 if !dir_entry.client_state {
                     continue;
@@ -138,11 +141,14 @@ impl App {
                 if let Some(name) = dir_entry.file_name.to_str() {
                     let repo = GitRepo::new(name.into(), dir_entry.path());
 
+                    if root.is_relative() {
+                        root = repo.path().to_path_buf();
+                    } else {
+                        root = repo.common_root(root);
+                    }
+
                     self.nucleo.injector().push(repo, |repo_ref, dst| {
-                        dst[0] = repo_ref
-                            .relative_path(&self.config.root)
-                            .to_string_lossy()
-                            .into()
+                        dst[0] = repo_ref.relative_path(&root).to_string_lossy().into()
                     });
                 }
             }
