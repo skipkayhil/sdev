@@ -54,7 +54,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 .border_style(Style::new().dark_gray()),
         )
         .highlight_symbol(PADDED_CHEVRON)
-        .highlight_style(Style::new().bold().bg(Color::Indexed(19)))
+        .highlight_style(Style::new().bold().bg(Color::Indexed(18)))
         .direction(ListDirection::BottomToTop);
 
     frame.render_stateful_widget(path_list, layout[0], &mut app.state);
