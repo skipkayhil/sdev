@@ -26,16 +26,6 @@ impl GitRepo {
     pub fn relative_path(&self, root: &Path) -> &Path {
         self.path.strip_prefix(root).unwrap_or(&self.path)
     }
-
-    pub fn common_root(&self, other: PathBuf) -> PathBuf {
-        let mut root = other;
-
-        while !&self.path.starts_with(&root) {
-            root.pop();
-        }
-
-        root
-    }
 }
 
 #[derive(Clone)]
