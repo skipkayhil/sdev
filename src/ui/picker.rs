@@ -7,7 +7,7 @@ use nucleo::{
     pattern::{CaseMatching, Normalization},
 };
 use ratatui::{
-    prelude::{Buffer, Color, Line, Rect, Span, Style, Stylize},
+    prelude::{Buffer, Line, Rect, Span, Style, Stylize},
     widgets::{Block, Borders, Widget},
 };
 
@@ -124,7 +124,13 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
                 let mut styled_string = Line::from(
                     matched_string
                         .chars()
-                        .map(|c| c.to_string().into())
+                        .map(|c| {
+                            if current_y == selected_y {
+                                c.to_string().into()
+                            } else {
+                                c.to_string().dark_gray()
+                            }
+                        })
                         .collect::<Vec<Span>>(),
                 );
 
@@ -141,11 +147,7 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
                         width: 2,
                     };
 
-                    Widget::render(
-                        PADDED_CHEVRON.bold().bg(Color::Indexed(18)),
-                        selected_indicator_rect,
-                        buf,
-                    );
+                    Widget::render(PADDED_CHEVRON, selected_indicator_rect, buf);
 
                     let rect = Rect {
                         x: 2,
@@ -154,7 +156,7 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
                         width: inner_area.width,
                     };
 
-                    Widget::render(styled_string.bold().bg(Color::Indexed(18)), rect, buf);
+                    Widget::render(styled_string, rect, buf);
                 } else {
                     let rect = Rect {
                         x: 2,
