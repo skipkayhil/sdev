@@ -1,4 +1,5 @@
 use std::io;
+use std::path::Path;
 use std::sync::Arc;
 
 use jwalk::WalkDirGeneric;
@@ -21,7 +22,6 @@ enum Status {
 }
 
 struct App {
-    config: crate::Config,
     nucleo: Nucleo<GitRepo>,
     search: String,
     selected: u32,
@@ -30,12 +30,11 @@ struct App {
 }
 
 impl App {
-    pub fn new(config: crate::Config) -> Self {
+    pub fn new() -> Self {
         let nucleo = Nucleo::<GitRepo>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
         let state = ListState::default().with_selected(Some(0));
 
         Self {
-            config,
             nucleo,
             search: String::new(),
             selected: 0,
@@ -115,9 +114,9 @@ impl App {
         }
     }
 
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+    pub fn run(&mut self, terminal: &mut DefaultTerminal, root: &Path) -> io::Result<()> {
         {
-            let walk_dir = WalkDirGeneric::<((), bool)>::new(&self.config.root).process_read_dir(
+            let walk_dir = WalkDirGeneric::<((), bool)>::new(root).process_read_dir(
                 |_depth, _path, _read_dir_state, children| {
                     for dir_entry in children.iter_mut().flatten() {
                         if dir_entry.path().join(".git").read_dir().is_ok() {
@@ -137,10 +136,7 @@ impl App {
                     let repo = GitRepo::new(name.into(), dir_entry.path());
 
                     self.nucleo.injector().push(repo, |repo_ref, dst| {
-                        dst[0] = repo_ref
-                            .relative_path(&self.config.root)
-                            .to_string_lossy()
-                            .into()
+                        dst[0] = repo_ref.relative_path(root).to_string_lossy().into()
                     });
                 }
             }
@@ -182,8 +178,8 @@ fn in_tmux() -> bool {
 pub fn run(config: crate::Config) -> anyhow::Result<()> {
     let mut terminal = ratatui::init();
 
-    let mut app = App::new(config);
-    let app_result = app.run(&mut terminal);
+    let mut app = App::new();
+    let app_result = app.run(&mut terminal, &config.root);
 
     ratatui::restore();
 
