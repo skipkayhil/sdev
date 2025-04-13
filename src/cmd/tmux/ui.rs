@@ -1,3 +1,6 @@
+use std::sync::{LazyLock, Mutex};
+
+use nucleo::Matcher;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout},
@@ -5,9 +8,11 @@ use ratatui::{
     widgets::{Block, Borders, List, ListDirection},
 };
 
-use crate::cmd::tmux::{App, MATCHER};
+use crate::cmd::tmux::App;
 
 const PADDED_CHEVRON: &str = "> ";
+
+static MATCHER: LazyLock<Mutex<Matcher>> = LazyLock::new(|| Mutex::new(Matcher::default()));
 
 pub fn render(app: &mut App, frame: &mut Frame) {
     let layout =
