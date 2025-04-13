@@ -2,8 +2,8 @@ use std::io;
 use std::path::Path;
 
 use jwalk::WalkDirGeneric;
+use ratatui::DefaultTerminal;
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
-use ratatui::{DefaultTerminal, widgets::ListState};
 
 use crate::dep::{Dep, tmux};
 use crate::repo::GitRepo;
@@ -20,20 +20,14 @@ enum Status {
 struct App {
     repo_picker: PickerState,
     search: String,
-    selected: u32,
-    state: ListState,
     status: Status,
 }
 
 impl App {
     pub fn new() -> Self {
-        let state = ListState::default().with_selected(Some(0));
-
         Self {
             repo_picker: PickerState::default(),
             search: String::new(),
-            selected: 0,
-            state,
             status: Status::Running,
         }
     }
@@ -48,44 +42,18 @@ impl App {
         self.repo_picker.push_char(&self.search);
     }
 
-    pub fn dec_selection(&mut self) {
-        self.selected = self.selected.saturating_sub(1);
-        // TODO: unwrap because List uses usize, custom List will fix that
-        self.state.select(Some(self.selected.try_into().unwrap()));
-    }
-
-    pub fn inc_selection(&mut self) {
-        let incremented_selection = self.selected.saturating_add(1);
-
-        if self.repo_picker.matched_item_count() > incremented_selection {
-            self.selected = self.selected.saturating_add(1);
-            // TODO: unwrap because List uses usize, custom List will fix that
-            self.state.select(Some(self.selected.try_into().unwrap()));
-        }
-    }
-
     pub fn abort(&mut self) {
         self.status = Status::Finished(None)
     }
 
     pub fn complete(&mut self) {
-        let selected_string = self.repo_picker.get_matched_item(self.selected).cloned();
+        let selected_string = self.repo_picker.get_selected();
 
         self.status = Status::Finished(selected_string)
     }
 
     pub fn is_running(&self) -> bool {
         matches!(&self.status, Status::Running)
-    }
-
-    pub fn tick(&mut self) {
-        let status = &self.repo_picker.tick();
-
-        if status.changed && self.repo_picker.matched_item_count() <= self.selected {
-            self.selected = self.repo_picker.matched_item_count().saturating_sub(1);
-            // TODO: unwrap because List uses usize, custom List will fix that
-            self.state.select(Some(self.selected.try_into().unwrap()));
-        }
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal, root: &Path) -> io::Result<()> {
@@ -115,7 +83,7 @@ impl App {
         };
 
         while self.is_running() {
-            self.tick();
+            self.repo_picker.tick();
 
             terminal.draw(|frame| ui::render(self, frame))?;
 
@@ -126,8 +94,8 @@ impl App {
                             KeyCode::Esc => self.abort(),
                             KeyCode::Char(key) => self.push_char(key),
                             KeyCode::Backspace => self.pop_char(),
-                            KeyCode::Up => self.inc_selection(),
-                            KeyCode::Down => self.dec_selection(),
+                            KeyCode::Up => self.repo_picker.inc_selection(),
+                            KeyCode::Down => self.repo_picker.dec_selection(),
                             KeyCode::Enter => self.complete(),
                             _ => (),
                         }

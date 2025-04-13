@@ -5,11 +5,14 @@ use nucleo::{
     Config, Nucleo,
     pattern::{CaseMatching, Normalization},
 };
+use ratatui::widgets::ListState;
 
 use crate::repo::GitRepo;
 
 pub struct PickerState {
     nucleo: Nucleo<GitRepo>,
+    selected: u32,
+    pub state: ListState,
 }
 
 impl PickerState {
@@ -25,15 +28,28 @@ impl PickerState {
             .reparse(0, search, CaseMatching::Smart, Normalization::Smart, true);
     }
 
-    pub fn matched_item_count(&self) -> u32 {
-        self.nucleo.snapshot().matched_item_count()
+    pub fn dec_selection(&mut self) {
+        self.selected = self.selected.saturating_sub(1);
+        // TODO: unwrap because List uses usize, custom List will fix that
+        self.state.select(Some(self.selected.try_into().unwrap()));
     }
 
-    pub fn get_matched_item(&self, i: u32) -> Option<&GitRepo> {
+    pub fn inc_selection(&mut self) {
+        let incremented_selection = self.selected.saturating_add(1);
+
+        if self.nucleo.snapshot().matched_item_count() > incremented_selection {
+            self.selected = self.selected.saturating_add(1);
+            // TODO: unwrap because List uses usize, custom List will fix that
+            self.state.select(Some(self.selected.try_into().unwrap()));
+        }
+    }
+
+    pub fn get_selected(&self) -> Option<GitRepo> {
         self.nucleo
             .snapshot()
-            .get_matched_item(i)
+            .get_matched_item(self.selected)
             .map(|item| item.data)
+            .cloned()
     }
 
     pub fn push(&mut self, repo: GitRepo, root: &Path) {
@@ -47,15 +63,30 @@ impl PickerState {
         self.nucleo.snapshot()
     }
 
-    pub fn tick(&mut self) -> nucleo::Status {
-        self.nucleo.tick(10)
+    pub fn tick(&mut self) {
+        let status = self.nucleo.tick(10);
+
+        if status.changed && self.nucleo.snapshot().matched_item_count() <= self.selected {
+            self.selected = self
+                .nucleo
+                .snapshot()
+                .matched_item_count()
+                .saturating_sub(1);
+            // TODO: unwrap because List uses usize, custom List will fix that
+            self.state.select(Some(self.selected.try_into().unwrap()));
+        }
     }
 }
 
 impl Default for PickerState {
     fn default() -> Self {
         let nucleo = Nucleo::<GitRepo>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
+        let state = ListState::default().with_selected(Some(0));
 
-        Self { nucleo }
+        Self {
+            nucleo,
+            selected: 0,
+            state,
+        }
     }
 }

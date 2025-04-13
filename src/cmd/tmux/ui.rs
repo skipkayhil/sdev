@@ -60,7 +60,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .highlight_style(Style::new().bold().bg(Color::Indexed(18)))
         .direction(ListDirection::BottomToTop);
 
-    frame.render_stateful_widget(path_list, layout[0], &mut app.state);
+    frame.render_stateful_widget(path_list, layout[0], &mut app.repo_picker.state);
 
     let prompt = Line::from(vec![
         PADDED_CHEVRON.bold().magenta(),
