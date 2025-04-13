@@ -1,10 +1,10 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::{LazyLock, Mutex};
 
 use nucleo::Matcher;
 use nucleo::{
-    Config, Nucleo,
+    Config, Nucleo, Utf32String,
     pattern::{CaseMatching, Normalization},
 };
 use ratatui::prelude::{Buffer, Rect};
@@ -16,13 +16,30 @@ use ratatui::{
 
 use crate::repo::GitRepo;
 
+type FormatFn = fn(&GitRepo, &Path) -> Utf32String;
+
 pub struct PickerState {
     nucleo: Nucleo<GitRepo>,
     selected: u32,
     pub state: ListState,
+    formatter: FormatFn,
+    data: PathBuf,
 }
 
 impl PickerState {
+    pub fn new(formatter: FormatFn, data: PathBuf) -> Self {
+        let nucleo = Nucleo::<GitRepo>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
+        let state = ListState::default().with_selected(Some(0));
+
+        Self {
+            nucleo,
+            selected: 0,
+            state,
+            formatter,
+            data,
+        }
+    }
+
     pub fn pop_char(&mut self, search: &str) {
         self.nucleo
             .pattern
@@ -59,9 +76,9 @@ impl PickerState {
             .cloned()
     }
 
-    pub fn push(&mut self, repo: GitRepo, root: &Path) {
+    pub fn push(&mut self, repo: GitRepo) {
         self.nucleo.injector().push(repo, |repo_ref, dst| {
-            dst[0] = repo_ref.relative_path(root).to_string_lossy().into()
+            dst[0] = (self.formatter)(repo_ref, &self.data)
         });
     }
 
@@ -77,19 +94,6 @@ impl PickerState {
             );
             // TODO: unwrap because List uses usize, custom List will fix that
             self.state.select(Some(self.selected.try_into().unwrap()));
-        }
-    }
-}
-
-impl Default for PickerState {
-    fn default() -> Self {
-        let nucleo = Nucleo::<GitRepo>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
-        let state = ListState::default().with_selected(Some(0));
-
-        Self {
-            nucleo,
-            selected: 0,
-            state,
         }
     }
 }

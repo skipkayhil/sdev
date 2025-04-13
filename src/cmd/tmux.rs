@@ -24,9 +24,12 @@ struct App {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(root: &Path) -> Self {
         Self {
-            repo_picker: PickerState::default(),
+            repo_picker: PickerState::new(
+                |repo_ref, data| repo_ref.relative_path(data).to_string_lossy().into(),
+                root.to_owned(),
+            ),
             search: String::new(),
             status: Status::Running,
         }
@@ -77,7 +80,7 @@ impl App {
                 if let Some(name) = dir_entry.file_name.to_str() {
                     let repo = GitRepo::new(name.into(), dir_entry.path());
 
-                    self.repo_picker.push(repo, root);
+                    self.repo_picker.push(repo);
                 }
             }
         };
@@ -118,7 +121,7 @@ fn in_tmux() -> bool {
 pub fn run(config: crate::Config) -> anyhow::Result<()> {
     let mut terminal = ratatui::init();
 
-    let mut app = App::new();
+    let mut app = App::new(&config.root);
     let app_result = app.run(&mut terminal, &config.root);
 
     ratatui::restore();
