@@ -1,5 +1,5 @@
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use jwalk::WalkDirGeneric;
 use ratatui::DefaultTerminal;
@@ -8,7 +8,7 @@ use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
 use crate::dep::{Dep, tmux};
 use crate::repo::GitRepo;
 use crate::shell;
-use crate::ui::picker::PickerState;
+use crate::ui::picker::Picker;
 
 mod ui;
 
@@ -18,7 +18,7 @@ enum Status {
 }
 
 struct App {
-    repo_picker: PickerState,
+    repo_picker: Picker<GitRepo, PathBuf>,
     search: String,
     status: Status,
 }
@@ -26,7 +26,7 @@ struct App {
 impl App {
     pub fn new(root: &Path) -> Self {
         Self {
-            repo_picker: PickerState::new(
+            repo_picker: Picker::new(
                 |repo_ref, data| repo_ref.relative_path(data).to_string_lossy().into(),
                 root.to_owned(),
             ),

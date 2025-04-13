@@ -5,7 +5,6 @@ use ratatui::{
 };
 
 use crate::cmd::tmux::App;
-use crate::ui::picker::Picker;
 
 const PADDED_CHEVRON: &str = "> ";
 
@@ -18,7 +17,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         app.search.clone().bold(),
     ]);
 
-    frame.render_stateful_widget(Picker {}, layout[0], &mut app.repo_picker);
+    app.repo_picker.render(layout[0], frame.buffer_mut());
 
     frame.render_widget(prompt, layout[1]);
 

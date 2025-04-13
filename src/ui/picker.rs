@@ -1,4 +1,3 @@
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::{LazyLock, Mutex};
 
@@ -14,21 +13,22 @@ use ratatui::{
     widgets::{Block, Borders, List, ListDirection},
 };
 
-use crate::repo::GitRepo;
+const PADDED_CHEVRON: &str = "> ";
+static MATCHER: LazyLock<Mutex<Matcher>> = LazyLock::new(|| Mutex::new(Matcher::default()));
 
-type FormatFn = fn(&GitRepo, &Path) -> Utf32String;
+type FormatFn<T, D> = fn(&T, &D) -> Utf32String;
 
-pub struct PickerState {
-    nucleo: Nucleo<GitRepo>,
+pub struct Picker<T: Clone + Send + Sync + 'static, D> {
+    nucleo: Nucleo<T>,
     selected: u32,
     pub state: ListState,
-    formatter: FormatFn,
-    data: PathBuf,
+    formatter: FormatFn<T, D>,
+    data: D,
 }
 
-impl PickerState {
-    pub fn new(formatter: FormatFn, data: PathBuf) -> Self {
-        let nucleo = Nucleo::<GitRepo>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
+impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
+    pub fn new(formatter: FormatFn<T, D>, data: D) -> Self {
+        let nucleo = Nucleo::<T>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
         let state = ListState::default().with_selected(Some(0));
 
         Self {
@@ -68,7 +68,7 @@ impl PickerState {
         }
     }
 
-    pub fn get_selected(&self) -> Option<GitRepo> {
+    pub fn get_selected(&self) -> Option<T> {
         self.nucleo
             .snapshot()
             .get_matched_item(self.selected)
@@ -76,10 +76,10 @@ impl PickerState {
             .cloned()
     }
 
-    pub fn push(&mut self, repo: GitRepo) {
-        self.nucleo.injector().push(repo, |repo_ref, dst| {
-            dst[0] = (self.formatter)(repo_ref, &self.data)
-        });
+    pub fn push(&mut self, t: T) {
+        self.nucleo
+            .injector()
+            .push(t, |t_ref, dst| dst[0] = (self.formatter)(t_ref, &self.data));
     }
 
     pub fn tick(&mut self) {
@@ -96,28 +96,19 @@ impl PickerState {
             self.state.select(Some(self.selected.try_into().unwrap()));
         }
     }
-}
 
-pub struct Picker {}
-
-const PADDED_CHEVRON: &str = "> ";
-static MATCHER: LazyLock<Mutex<Matcher>> = LazyLock::new(|| Mutex::new(Matcher::default()));
-
-impl StatefulWidget for Picker {
-    type State = PickerState;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
         let mut matcher = MATCHER.lock().unwrap();
         let mut col_indices = Vec::new();
 
-        let snap = state.nucleo.snapshot();
-        let matched_paths: Vec<Line> = snap
+        let snap = &self.nucleo.snapshot();
+        let matches: Vec<Line> = snap
             .matched_items(0..snap.matched_item_count().min(area.height.into()))
             .map(|item| {
-                let relative_path = item.matcher_columns[0].slice(..);
+                let matched_string = item.matcher_columns[0].slice(..);
 
                 snap.pattern().column_pattern(0).indices(
-                    relative_path,
+                    matched_string,
                     &mut matcher,
                     &mut col_indices,
                 );
@@ -125,23 +116,23 @@ impl StatefulWidget for Picker {
                 col_indices.dedup();
                 col_indices.sort_unstable();
 
-                let mut styled_path = Line::from(
-                    relative_path
+                let mut styled_string = Line::from(
+                    matched_string
                         .chars()
                         .map(|c| c.to_string().into())
                         .collect::<Vec<Span>>(),
                 );
 
                 col_indices.drain(..).for_each(|i| {
-                    let index: usize = i.try_into().expect("you really have a path that long?");
-                    styled_path.spans[index] = styled_path.spans[index].clone().red();
+                    let index: usize = i.try_into().expect("you really have a string that long?");
+                    styled_string.spans[index] = styled_string.spans[index].clone().red();
                 });
 
-                styled_path
+                styled_string
             })
             .collect();
 
-        let path_list = List::new(matched_paths)
+        let match_list = List::new(matches)
             .block(
                 Block::default()
                     .borders(Borders::BOTTOM)
@@ -151,6 +142,6 @@ impl StatefulWidget for Picker {
             .highlight_style(Style::new().bold().bg(Color::Indexed(18)))
             .direction(ListDirection::BottomToTop);
 
-        path_list.render(area, buf, &mut state.state);
+        match_list.render(area, buf, &mut self.state);
     }
 }
