@@ -6,11 +6,9 @@ use nucleo::{
     Config, Nucleo, Utf32String,
     pattern::{CaseMatching, Normalization},
 };
-use ratatui::prelude::{Buffer, Rect};
-use ratatui::widgets::{ListState, StatefulWidget};
 use ratatui::{
-    prelude::{Color, Line, Span, Style, Stylize},
-    widgets::{Block, Borders, List, ListDirection},
+    prelude::{Buffer, Color, Line, Rect, Span, Style, Stylize},
+    widgets::{Block, Borders, Widget},
 };
 
 const PADDED_CHEVRON: &str = "> ";
@@ -20,8 +18,7 @@ type FormatFn<T, D> = fn(&T, &D) -> Utf32String;
 
 pub struct Picker<T: Clone + Send + Sync + 'static, D> {
     nucleo: Nucleo<T>,
-    selected: u32,
-    pub state: ListState,
+    selected: u16,
     formatter: FormatFn<T, D>,
     data: D,
 }
@@ -29,12 +26,10 @@ pub struct Picker<T: Clone + Send + Sync + 'static, D> {
 impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
     pub fn new(formatter: FormatFn<T, D>, data: D) -> Self {
         let nucleo = Nucleo::<T>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
-        let state = ListState::default().with_selected(Some(0));
 
         Self {
             nucleo,
             selected: 0,
-            state,
             formatter,
             data,
         }
@@ -54,24 +49,20 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
 
     pub fn dec_selection(&mut self) {
         self.selected = self.selected.saturating_sub(1);
-        // TODO: unwrap because List uses usize, custom List will fix that
-        self.state.select(Some(self.selected.try_into().unwrap()));
     }
 
     pub fn inc_selection(&mut self) {
         let incremented_selection = self.selected.saturating_add(1);
 
-        if self.nucleo.snapshot().matched_item_count() > incremented_selection {
-            self.selected = self.selected.saturating_add(1);
-            // TODO: unwrap because List uses usize, custom List will fix that
-            self.state.select(Some(self.selected.try_into().unwrap()));
+        if self.nucleo.snapshot().matched_item_count() > incremented_selection.into() {
+            self.selected = incremented_selection;
         }
     }
 
     pub fn get_selected(&self) -> Option<T> {
         self.nucleo
             .snapshot()
-            .get_matched_item(self.selected)
+            .get_matched_item(self.selected.into())
             .map(|item| item.data)
             .cloned()
     }
@@ -86,25 +77,39 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
         let status = self.nucleo.tick(10);
 
         if status.changed {
-            self.selected = self.selected.min(
-                self.nucleo
-                    .snapshot()
-                    .matched_item_count()
-                    .saturating_sub(1),
-            );
-            // TODO: unwrap because List uses usize, custom List will fix that
-            self.state.select(Some(self.selected.try_into().unwrap()));
+            if let Ok(matched_items) = self
+                .nucleo
+                .snapshot()
+                .matched_item_count()
+                .saturating_sub(1)
+                .try_into()
+            {
+                self.selected = self.selected.min(matched_items);
+            }
         }
     }
 
     pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
+        let block = Block::default()
+            .borders(Borders::BOTTOM)
+            .border_style(Style::new().dark_gray());
+        let inner_area = block.inner(area);
+
         let mut matcher = MATCHER.lock().unwrap();
         let mut col_indices = Vec::new();
 
         let snap = &self.nucleo.snapshot();
-        let matches: Vec<Line> = snap
-            .matched_items(0..snap.matched_item_count().min(area.height.into()))
-            .map(|item| {
+
+        let min_displayed = 0;
+        let max_displayed = snap.matched_item_count().min(inner_area.height.into());
+
+        Widget::render(block, area, buf);
+
+        let mut current_y = inner_area.bottom() - 1;
+        let selected_y = current_y.saturating_sub(self.selected);
+
+        snap.matched_items(min_displayed..max_displayed)
+            .for_each(|item| {
                 let matched_string = item.matcher_columns[0].slice(..);
 
                 snap.pattern().column_pattern(0).indices(
@@ -128,20 +133,40 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
                     styled_string.spans[index] = styled_string.spans[index].clone().red();
                 });
 
-                styled_string
-            })
-            .collect();
+                if current_y == selected_y {
+                    let selected_indicator_rect = Rect {
+                        x: 0,
+                        y: selected_y,
+                        height: 1,
+                        width: 2,
+                    };
 
-        let match_list = List::new(matches)
-            .block(
-                Block::default()
-                    .borders(Borders::BOTTOM)
-                    .border_style(Style::new().dark_gray()),
-            )
-            .highlight_symbol(PADDED_CHEVRON)
-            .highlight_style(Style::new().bold().bg(Color::Indexed(18)))
-            .direction(ListDirection::BottomToTop);
+                    Widget::render(
+                        PADDED_CHEVRON.bold().bg(Color::Indexed(18)),
+                        selected_indicator_rect,
+                        buf,
+                    );
 
-        match_list.render(area, buf, &mut self.state);
+                    let rect = Rect {
+                        x: 2,
+                        y: current_y,
+                        height: 1,
+                        width: inner_area.width,
+                    };
+
+                    Widget::render(styled_string.bold().bg(Color::Indexed(18)), rect, buf);
+                } else {
+                    let rect = Rect {
+                        x: 2,
+                        y: current_y,
+                        height: 1,
+                        width: styled_string.width().try_into().unwrap(),
+                    };
+
+                    Widget::render(styled_string, rect, buf);
+                }
+
+                current_y = current_y.saturating_sub(1);
+            });
     }
 }
