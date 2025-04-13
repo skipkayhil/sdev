@@ -25,19 +25,17 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let matched_paths: Vec<Line> = snap
         .matched_items(0..snap.matched_item_count().min(layout[0].height.into()))
         .map(|item| {
-            snap.pattern().column_pattern(0).indices(
-                item.matcher_columns[0].slice(..),
-                &mut matcher,
-                &mut col_indices,
-            );
+            let relative_path = item.matcher_columns[0].slice(..);
+
+            snap.pattern()
+                .column_pattern(0)
+                .indices(relative_path, &mut matcher, &mut col_indices);
 
             col_indices.dedup();
             col_indices.sort_unstable();
 
             let mut styled_path = Line::from(
-                item.data
-                    .relative_path(&app.config.root)
-                    .to_string_lossy()
+                relative_path
                     .chars()
                     .map(|c| c.to_string().into())
                     .collect::<Vec<Span>>(),
