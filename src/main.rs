@@ -6,6 +6,7 @@ mod config;
 mod dep;
 mod repo;
 mod shell;
+mod ui;
 
 use crate::config::Config;
 use crate::repo::GitRepoSource;

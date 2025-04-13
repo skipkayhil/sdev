@@ -21,7 +21,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let mut matcher = MATCHER.lock().unwrap();
     let mut col_indices = Vec::new();
 
-    let snap = app.nucleo.snapshot();
+    let snap = app.repo_picker.snapshot();
     let matched_paths: Vec<Line> = snap
         .matched_items(0..snap.matched_item_count().min(layout[0].height.into()))
         .map(|item| {

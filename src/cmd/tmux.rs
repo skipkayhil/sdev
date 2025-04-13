@@ -1,18 +1,14 @@
 use std::io;
 use std::path::Path;
-use std::sync::Arc;
 
 use jwalk::WalkDirGeneric;
-use nucleo::{
-    Config, Nucleo,
-    pattern::{CaseMatching, Normalization},
-};
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::{DefaultTerminal, widgets::ListState};
 
 use crate::dep::{Dep, tmux};
 use crate::repo::GitRepo;
 use crate::shell;
+use crate::ui::picker::PickerState;
 
 mod ui;
 
@@ -22,7 +18,7 @@ enum Status {
 }
 
 struct App {
-    nucleo: Nucleo<GitRepo>,
+    repo_picker: PickerState,
     search: String,
     selected: u32,
     state: ListState,
@@ -31,11 +27,10 @@ struct App {
 
 impl App {
     pub fn new() -> Self {
-        let nucleo = Nucleo::<GitRepo>::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
         let state = ListState::default().with_selected(Some(0));
 
         Self {
-            nucleo,
+            repo_picker: PickerState::default(),
             search: String::new(),
             selected: 0,
             state,
@@ -45,24 +40,12 @@ impl App {
 
     pub fn pop_char(&mut self) {
         self.search.pop();
-        self.nucleo.pattern.reparse(
-            0,
-            &self.search,
-            CaseMatching::Smart,
-            Normalization::Smart,
-            false,
-        );
+        self.repo_picker.pop_char(&self.search);
     }
 
     pub fn push_char(&mut self, c: char) {
         self.search.push(c);
-        self.nucleo.pattern.reparse(
-            0,
-            &self.search,
-            CaseMatching::Smart,
-            Normalization::Smart,
-            true,
-        );
+        self.repo_picker.push_char(&self.search);
     }
 
     pub fn dec_selection(&mut self) {
@@ -74,7 +57,7 @@ impl App {
     pub fn inc_selection(&mut self) {
         let incremented_selection = self.selected.saturating_add(1);
 
-        if self.nucleo.snapshot().matched_item_count() > incremented_selection {
+        if self.repo_picker.matched_item_count() > incremented_selection {
             self.selected = self.selected.saturating_add(1);
             // TODO: unwrap because List uses usize, custom List will fix that
             self.state.select(Some(self.selected.try_into().unwrap()));
@@ -86,12 +69,7 @@ impl App {
     }
 
     pub fn complete(&mut self) {
-        let selected_string = self
-            .nucleo
-            .snapshot()
-            .get_matched_item(self.selected)
-            .map(|item| item.data)
-            .cloned();
+        let selected_string = self.repo_picker.get_matched_item(self.selected).cloned();
 
         self.status = Status::Finished(selected_string)
     }
@@ -101,14 +79,10 @@ impl App {
     }
 
     pub fn tick(&mut self) {
-        let status = self.nucleo.tick(10);
+        let status = &self.repo_picker.tick();
 
-        if status.changed && self.nucleo.snapshot().matched_item_count() <= self.selected {
-            self.selected = self
-                .nucleo
-                .snapshot()
-                .matched_item_count()
-                .saturating_sub(1);
+        if status.changed && self.repo_picker.matched_item_count() <= self.selected {
+            self.selected = self.repo_picker.matched_item_count().saturating_sub(1);
             // TODO: unwrap because List uses usize, custom List will fix that
             self.state.select(Some(self.selected.try_into().unwrap()));
         }
@@ -135,9 +109,7 @@ impl App {
                 if let Some(name) = dir_entry.file_name.to_str() {
                     let repo = GitRepo::new(name.into(), dir_entry.path());
 
-                    self.nucleo.injector().push(repo, |repo_ref, dst| {
-                        dst[0] = repo_ref.relative_path(root).to_string_lossy().into()
-                    });
+                    self.repo_picker.push(repo, root);
                 }
             }
         };
