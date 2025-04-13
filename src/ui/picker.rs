@@ -68,12 +68,13 @@ impl PickerState {
     pub fn tick(&mut self) {
         let status = self.nucleo.tick(10);
 
-        if status.changed && self.nucleo.snapshot().matched_item_count() <= self.selected {
-            self.selected = self
-                .nucleo
-                .snapshot()
-                .matched_item_count()
-                .saturating_sub(1);
+        if status.changed {
+            self.selected = self.selected.min(
+                self.nucleo
+                    .snapshot()
+                    .matched_item_count()
+                    .saturating_sub(1),
+            );
             // TODO: unwrap because List uses usize, custom List will fix that
             self.state.select(Some(self.selected.try_into().unwrap()));
         }
