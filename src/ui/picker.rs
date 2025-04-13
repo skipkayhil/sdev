@@ -1,11 +1,18 @@
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::{LazyLock, Mutex};
 
+use nucleo::Matcher;
 use nucleo::{
     Config, Nucleo,
     pattern::{CaseMatching, Normalization},
 };
-use ratatui::widgets::ListState;
+use ratatui::prelude::{Buffer, Rect};
+use ratatui::widgets::{ListState, StatefulWidget};
+use ratatui::{
+    prelude::{Color, Line, Span, Style, Stylize},
+    widgets::{Block, Borders, List, ListDirection},
+};
 
 use crate::repo::GitRepo;
 
@@ -58,11 +65,6 @@ impl PickerState {
         });
     }
 
-    // tmp until Picker renders itself
-    pub fn snapshot(&self) -> &nucleo::Snapshot<GitRepo> {
-        self.nucleo.snapshot()
-    }
-
     pub fn tick(&mut self) {
         let status = self.nucleo.tick(10);
 
@@ -88,5 +90,62 @@ impl Default for PickerState {
             selected: 0,
             state,
         }
+    }
+}
+
+pub struct Picker {}
+
+const PADDED_CHEVRON: &str = "> ";
+static MATCHER: LazyLock<Mutex<Matcher>> = LazyLock::new(|| Mutex::new(Matcher::default()));
+
+impl StatefulWidget for Picker {
+    type State = PickerState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let mut matcher = MATCHER.lock().unwrap();
+        let mut col_indices = Vec::new();
+
+        let snap = state.nucleo.snapshot();
+        let matched_paths: Vec<Line> = snap
+            .matched_items(0..snap.matched_item_count().min(area.height.into()))
+            .map(|item| {
+                let relative_path = item.matcher_columns[0].slice(..);
+
+                snap.pattern().column_pattern(0).indices(
+                    relative_path,
+                    &mut matcher,
+                    &mut col_indices,
+                );
+
+                col_indices.dedup();
+                col_indices.sort_unstable();
+
+                let mut styled_path = Line::from(
+                    relative_path
+                        .chars()
+                        .map(|c| c.to_string().into())
+                        .collect::<Vec<Span>>(),
+                );
+
+                col_indices.drain(..).for_each(|i| {
+                    let index: usize = i.try_into().expect("you really have a path that long?");
+                    styled_path.spans[index] = styled_path.spans[index].clone().red();
+                });
+
+                styled_path
+            })
+            .collect();
+
+        let path_list = List::new(matched_paths)
+            .block(
+                Block::default()
+                    .borders(Borders::BOTTOM)
+                    .border_style(Style::new().dark_gray()),
+            )
+            .highlight_symbol(PADDED_CHEVRON)
+            .highlight_style(Style::new().bold().bg(Color::Indexed(18)))
+            .direction(ListDirection::BottomToTop);
+
+        path_list.render(area, buf, &mut state.state);
     }
 }
