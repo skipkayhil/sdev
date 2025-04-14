@@ -18,7 +18,7 @@ type FormatFn<T, D> = fn(&T, &D) -> Utf32String;
 
 pub struct Picker<T: Clone + Send + Sync + 'static, D> {
     nucleo: Nucleo<T>,
-    selected: u16,
+    selected: u32,
     formatter: FormatFn<T, D>,
     data: D,
 }
@@ -54,30 +54,27 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
     pub fn inc_selection(&mut self) {
         let incremented_selection = self.selected.saturating_add(1);
 
-        if self.nucleo.snapshot().matched_item_count() > incremented_selection.into() {
+        if self.nucleo.snapshot().matched_item_count() > incremented_selection {
             self.selected = incremented_selection;
         }
     }
 
-    pub fn select(&mut self, i: u16) {
-        if self.nucleo.snapshot().matched_item_count() > i.into() {
+    pub fn select(&mut self, i: u32) {
+        if self.nucleo.snapshot().matched_item_count() > i {
             self.selected = i;
-        } else if let Ok(count) = self.nucleo.snapshot().matched_item_count().try_into() {
-            self.selected = count;
-            self.selected -= 1;
         } else {
-            self.selected = u16::MAX;
+            self.selected = self.nucleo.snapshot().matched_item_count() - 1
         }
     }
 
-    pub fn selected(&self) -> u16 {
+    pub fn selected(&self) -> u32 {
         self.selected
     }
 
     pub fn get_selected(&self) -> Option<T> {
         self.nucleo
             .snapshot()
-            .get_matched_item(self.selected.into())
+            .get_matched_item(self.selected)
             .map(|item| item.data)
             .cloned()
     }
@@ -92,15 +89,12 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
         let status = self.nucleo.tick(10);
 
         if status.changed {
-            if let Ok(matched_items) = self
-                .nucleo
-                .snapshot()
-                .matched_item_count()
-                .saturating_sub(1)
-                .try_into()
-            {
-                self.selected = self.selected.min(matched_items);
-            }
+            self.selected = self.selected.min(
+                self.nucleo
+                    .snapshot()
+                    .matched_item_count()
+                    .saturating_sub(1),
+            );
         }
     }
 
@@ -123,7 +117,7 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
         Widget::render(block, area, buf);
 
         let mut current_y = inner_area.bottom() - 1;
-        let selected_y = current_y.saturating_sub(self.selected);
+        let selected_y = current_y.saturating_sub(self.selected.try_into().unwrap_or(u16::MAX));
 
         snap.matched_items(min_displayed..max_displayed)
             .for_each(|item| {
