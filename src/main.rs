@@ -27,7 +27,10 @@ enum Commands {
     Open(OpenArgs),
     /// Fuzzy attach to a repository's tmux session (creating it if necessary)
     #[command(alias("t"))]
-    Tmux,
+    Tmux {
+        #[arg(long, default_value_t = cmd::tmux::Mode::Repos, value_enum)]
+        mode: cmd::tmux::Mode,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -56,7 +59,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Open(open) => match &open.command {
             OpenCommands::Pr { target } => cmd::open::pr::run(target),
         },
-        Commands::Tmux => cmd::tmux::run(config),
+        Commands::Tmux { mode } => cmd::tmux::run(mode, config),
     }
 }
 

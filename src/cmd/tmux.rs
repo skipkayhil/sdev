@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use clap::ValueEnum;
 use jwalk::WalkDirGeneric;
 use ratatui::DefaultTerminal;
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
@@ -11,6 +12,7 @@ use crate::ui::picker::Picker;
 
 mod ui;
 
+#[derive(Clone, ValueEnum)]
 pub enum Mode {
     Repos,
     Sessions,
@@ -31,9 +33,9 @@ struct App {
 }
 
 impl App {
-    pub fn new(root: &Path) -> Self {
+    pub fn new(mode: Mode, root: &Path) -> Self {
         Self {
-            mode: Mode::Repos,
+            mode,
             repo_picker: Picker::new(
                 |repo_ref, data| repo_ref.relative_path(data).to_string_lossy().into(),
                 root.to_owned(),
@@ -158,10 +160,10 @@ impl App {
     }
 }
 
-pub fn run(config: crate::Config) -> anyhow::Result<()> {
+pub fn run(mode: &Mode, config: crate::Config) -> anyhow::Result<()> {
     let mut terminal = ratatui::init();
 
-    let mut app = App::new(&config.root);
+    let mut app = App::new(mode.clone(), &config.root);
     let app_result = app.run(&mut terminal, &config.root);
 
     ratatui::restore();
