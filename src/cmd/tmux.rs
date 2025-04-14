@@ -175,14 +175,14 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
 
     match &app.mode {
         Mode::Repos => {
-            let Some(repo) = app.repo_picker.get_selected() else {
+            let Some(repo) = app.repo_picker.selected_data() else {
                 return Ok(());
             };
             Session::process(repo.name().to_string(), repo.path().to_owned())?;
             Ok(tmux::attach_or_switch(repo.name())?)
         }
         Mode::Sessions => {
-            let Some(name) = app.session_picker.get_selected() else {
+            let Some(name) = app.session_picker.selected_data() else {
                 return Ok(());
             };
             Ok(tmux::attach_or_switch(&*name)?)

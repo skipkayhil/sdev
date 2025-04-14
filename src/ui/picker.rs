@@ -71,7 +71,7 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
         self.selected
     }
 
-    pub fn get_selected(&self) -> Option<T> {
+    pub fn selected_data(&self) -> Option<T> {
         self.nucleo
             .snapshot()
             .get_matched_item(self.selected)
