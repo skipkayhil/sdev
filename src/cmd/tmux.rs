@@ -5,9 +5,9 @@ use jwalk::WalkDirGeneric;
 use ratatui::DefaultTerminal;
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
 
-use crate::dep::{Dep, tmux};
+use crate::dep::{Dep, tmux::Session};
 use crate::repo::GitRepo;
-use crate::shell;
+use crate::shell::tmux;
 use crate::ui::picker::Picker;
 
 mod ui;
@@ -111,13 +111,6 @@ impl App {
     }
 }
 
-const CMD_ATTACH: &str = "attach-session";
-const CMD_SWITCH: &str = "switch-client";
-
-fn in_tmux() -> bool {
-    std::env::var("TMUX").is_ok()
-}
-
 pub fn run(config: crate::Config) -> anyhow::Result<()> {
     let mut terminal = ratatui::init();
 
@@ -133,13 +126,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
         return Ok(());
     };
 
-    let name = tmux::SessionName::from(repo.name());
+    Session::new(repo.name().to_string(), repo.path().to_owned()).process()?;
 
-    tmux::Session::new(name.clone(), repo.path().to_owned()).process()?;
-
-    let subcommand = if in_tmux() { CMD_SWITCH } else { CMD_ATTACH };
-
-    shell::new!("tmux", subcommand, "-t", &name.0).run(false)?;
-
-    Ok(())
+    Ok(tmux::attach_or_switch(repo.name())?)
 }

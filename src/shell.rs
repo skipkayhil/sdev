@@ -2,6 +2,8 @@ use std::fmt;
 use std::io;
 use std::process::{Command, ExitStatus, Output};
 
+pub mod tmux;
+
 pub const FG_GRAY: &str = "\x1b[90m";
 pub const RESET: &str = "\x1b[0m";
 
