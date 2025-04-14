@@ -59,6 +59,21 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
         }
     }
 
+    pub fn select(&mut self, i: u16) {
+        if self.nucleo.snapshot().matched_item_count() > i.into() {
+            self.selected = i;
+        } else if let Ok(count) = self.nucleo.snapshot().matched_item_count().try_into() {
+            self.selected = count;
+            self.selected -= 1;
+        } else {
+            self.selected = u16::MAX;
+        }
+    }
+
+    pub fn selected(&self) -> u16 {
+        self.selected
+    }
+
     pub fn get_selected(&self) -> Option<T> {
         self.nucleo
             .snapshot()
@@ -90,6 +105,8 @@ impl<T: Clone + Send + Sync + 'static, D> Picker<T, D> {
     }
 
     pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
+        self.tick();
+
         let block = Block::default()
             .borders(Borders::BOTTOM)
             .border_style(Style::new().dark_gray());

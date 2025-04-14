@@ -4,7 +4,7 @@ use ratatui::{
     prelude::{Line, Stylize},
 };
 
-use crate::cmd::tmux::App;
+use crate::cmd::tmux::{App, Mode};
 
 const PADDED_CHEVRON: &str = "> ";
 
@@ -17,7 +17,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         app.search.clone().bold(),
     ]);
 
-    app.repo_picker.render(layout[0], frame.buffer_mut());
+    match &app.mode {
+        Mode::Repos => app.repo_picker.render(layout[0], frame.buffer_mut()),
+        Mode::Sessions => app.session_picker.render(layout[0], frame.buffer_mut()),
+    };
 
     frame.render_widget(prompt, layout[1]);
 

@@ -43,6 +43,14 @@ pub fn has<S: Into<SessionName>>(name: S) -> Result<bool, shell::ShellError> {
     Ok(status)
 }
 
+pub fn list_sessions() -> Result<Vec<String>, anyhow::Error> {
+    let raw_output = shell::new!("tmux", "list-sessions", "-F", "#{session_name}").output(false)?;
+
+    let parsed_output = String::from_utf8(raw_output.stdout)?;
+
+    Ok(parsed_output.lines().map(str::to_string).collect())
+}
+
 pub fn new_session<S: Into<SessionName>>(name: S, path: &Path) -> Result<(), shell::ShellError> {
     shell::new!(
         "tmux",

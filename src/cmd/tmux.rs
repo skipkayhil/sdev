@@ -1,4 +1,3 @@
-use std::io;
 use std::path::{Path, PathBuf};
 
 use jwalk::WalkDirGeneric;
@@ -12,13 +11,21 @@ use crate::ui::picker::Picker;
 
 mod ui;
 
+pub enum Mode {
+    Repos,
+    Sessions,
+}
+
 enum Status {
     Running,
-    Finished(Option<GitRepo>),
+    Aborted,
+    Complete,
 }
 
 struct App {
+    mode: Mode,
     repo_picker: Picker<GitRepo, PathBuf>,
+    session_picker: Picker<String, ()>,
     search: String,
     status: Status,
 }
@@ -26,10 +33,12 @@ struct App {
 impl App {
     pub fn new(root: &Path) -> Self {
         Self {
+            mode: Mode::Repos,
             repo_picker: Picker::new(
                 |repo_ref, data| repo_ref.relative_path(data).to_string_lossy().into(),
                 root.to_owned(),
             ),
+            session_picker: Picker::new(|str, _| str.to_string().into(), ()),
             search: String::new(),
             status: Status::Running,
         }
@@ -37,29 +46,64 @@ impl App {
 
     pub fn pop_char(&mut self) {
         self.search.pop();
-        self.repo_picker.pop_char(&self.search);
+        match &self.mode {
+            Mode::Repos => &self.repo_picker.pop_char(&self.search),
+            Mode::Sessions => &self.session_picker.pop_char(&self.search),
+        };
     }
 
     pub fn push_char(&mut self, c: char) {
         self.search.push(c);
-        self.repo_picker.push_char(&self.search);
+        match &self.mode {
+            Mode::Repos => &self.repo_picker.push_char(&self.search),
+            Mode::Sessions => &self.session_picker.push_char(&self.search),
+        };
+    }
+
+    fn dec_selection(&mut self) {
+        match &self.mode {
+            Mode::Repos => self.repo_picker.dec_selection(),
+            Mode::Sessions => self.session_picker.dec_selection(),
+        };
+    }
+
+    fn inc_selection(&mut self) {
+        match &self.mode {
+            Mode::Repos => self.repo_picker.inc_selection(),
+            Mode::Sessions => self.session_picker.inc_selection(),
+        };
     }
 
     pub fn abort(&mut self) {
-        self.status = Status::Finished(None)
+        self.status = Status::Aborted
     }
 
     pub fn complete(&mut self) {
-        let selected_string = self.repo_picker.get_selected();
-
-        self.status = Status::Finished(selected_string)
+        self.status = Status::Complete
     }
 
     pub fn is_running(&self) -> bool {
         matches!(&self.status, Status::Running)
     }
 
-    pub fn run(&mut self, terminal: &mut DefaultTerminal, root: &Path) -> io::Result<()> {
+    fn toggle_mode(&mut self) {
+        match self.mode {
+            Mode::Repos => {
+                self.mode = Mode::Sessions;
+                self.session_picker.pop_char(&self.search);
+                self.session_picker.tick();
+                self.session_picker.select(self.repo_picker.selected());
+            }
+            Mode::Sessions => {
+                self.mode = Mode::Repos;
+                self.repo_picker.pop_char(&self.search);
+                self.repo_picker.tick();
+                self.repo_picker.select(self.session_picker.selected());
+            }
+        }
+    }
+
+    pub fn run(&mut self, terminal: &mut DefaultTerminal, root: &Path) -> anyhow::Result<()> {
         {
             let walk_dir = WalkDirGeneric::<((), bool)>::new(root).process_read_dir(
                 |_depth, _path, _read_dir_state, children| {
@@ -85,9 +129,11 @@ impl App {
             }
         };
 
-        while self.is_running() {
-            self.repo_picker.tick();
+        for session in tmux::list_sessions()? {
+            self.session_picker.push(session);
+        }
 
+        while self.is_running() {
             terminal.draw(|frame| ui::render(self, frame))?;
 
             if event::poll(std::time::Duration::from_millis(16))? {
@@ -97,9 +143,10 @@ impl App {
                             KeyCode::Esc => self.abort(),
                             KeyCode::Char(key) => self.push_char(key),
                             KeyCode::Backspace => self.pop_char(),
-                            KeyCode::Up => self.repo_picker.inc_selection(),
-                            KeyCode::Down => self.repo_picker.dec_selection(),
+                            KeyCode::Up => self.inc_selection(),
+                            KeyCode::Down => self.dec_selection(),
                             KeyCode::Enter => self.complete(),
+                            KeyCode::Tab => self.toggle_mode(),
                             _ => (),
                         }
                     }
@@ -122,11 +169,23 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
     // Ensure the terminal is reset before possibly returning early
     app_result?;
 
-    let Status::Finished(Some(repo)) = app.status else {
+    if let Status::Aborted = app.status {
         return Ok(());
     };
 
-    Session::process(repo.name().to_string(), repo.path().to_owned())?;
-
-    Ok(tmux::attach_or_switch(repo.name())?)
+    match &app.mode {
+        Mode::Repos => {
+            let Some(repo) = app.repo_picker.get_selected() else {
+                return Ok(());
+            };
+            Session::process(repo.name().to_string(), repo.path().to_owned())?;
+            Ok(tmux::attach_or_switch(repo.name())?)
+        }
+        Mode::Sessions => {
+            let Some(name) = app.session_picker.get_selected() else {
+                return Ok(());
+            };
+            Ok(tmux::attach_or_switch(&*name)?)
+        }
+    }
 }
