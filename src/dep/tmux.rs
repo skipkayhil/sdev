@@ -9,8 +9,8 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(name: String, path: PathBuf) -> Self {
-        Session { name, path }
+    pub fn process(name: String, path: PathBuf) -> MeetResult {
+        Session { name, path }.process()
     }
 }
 

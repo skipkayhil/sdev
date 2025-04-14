@@ -5,7 +5,7 @@ use jwalk::WalkDirGeneric;
 use ratatui::DefaultTerminal;
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
 
-use crate::dep::{Dep, tmux::Session};
+use crate::dep::tmux::Session;
 use crate::repo::GitRepo;
 use crate::shell::tmux;
 use crate::ui::picker::Picker;
@@ -126,7 +126,7 @@ pub fn run(config: crate::Config) -> anyhow::Result<()> {
         return Ok(());
     };
 
-    Session::new(repo.name().to_string(), repo.path().to_owned()).process()?;
+    Session::process(repo.name().to_string(), repo.path().to_owned())?;
 
     Ok(tmux::attach_or_switch(repo.name())?)
 }
