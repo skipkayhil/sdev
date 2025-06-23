@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use clap::ValueEnum;
-use jwalk::WalkDirGeneric;
 use ratatui::DefaultTerminal;
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
+use walkdir::WalkDir;
 
 use crate::dep::tmux::Session;
 use crate::repo::GitRepo;
@@ -107,26 +107,17 @@ impl App {
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal, root: &Path) -> anyhow::Result<()> {
         {
-            let walk_dir = WalkDirGeneric::<((), bool)>::new(root).process_read_dir(
-                |_depth, _path, _read_dir_state, children| {
-                    for dir_entry in children.iter_mut().flatten() {
-                        if dir_entry.path().join(".git").read_dir().is_ok() {
-                            dir_entry.read_children_path = None;
-                            dir_entry.client_state = true;
-                        }
+            let mut it = WalkDir::new(root).into_iter();
+
+            while let Some(Ok(entry)) = it.next() {
+                if entry.path().join(".git").read_dir().is_ok() {
+                    it.skip_current_dir();
+
+                    if let Some(name) = entry.file_name().to_str() {
+                        let repo = GitRepo::new(name.into(), entry.path().into());
+
+                        self.repo_picker.push(repo);
                     }
-                },
-            );
-
-            for dir_entry in walk_dir.into_iter().flatten() {
-                if !dir_entry.client_state {
-                    continue;
-                };
-
-                if let Some(name) = dir_entry.file_name.to_str() {
-                    let repo = GitRepo::new(name.into(), dir_entry.path());
-
-                    self.repo_picker.push(repo);
                 }
             }
         };
