@@ -91,7 +91,7 @@ mod tests {
         );
     }
 
-    fn assert_source_to_url_and_path(raw: &str, expected_url: &str, expected_path: &str) -> () {
+    fn assert_source_to_url_and_path(raw: &str, expected_url: &str, expected_path: &str) {
         let source: GitRepoSource = raw.parse().unwrap();
         let config = Config {
             host: "github.com".to_string(),

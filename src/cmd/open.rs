@@ -107,19 +107,16 @@ pub mod pr {
                 Self::GithubOrigin { host, path } => {
                     let target_string = target
                         .as_ref()
-                        .map_or("".to_string(), |name| format!("{}...", name));
+                        .map_or("".to_string(), |name| format!("{name}..."));
 
-                    format!("https://{}{}/pull/{}{}", host, path, target_string, branch)
+                    format!("https://{host}{path}/pull/{target_string}{branch}")
                 }
                 Self::GithubUpstream { host, path, source } => {
                     let target_string = target
                         .as_ref()
-                        .map_or("".to_string(), |name| format!("{}...", name));
+                        .map_or("".to_string(), |name| format!("{name}..."));
 
-                    format!(
-                        "https://{}{}/pull/{}{}:{}",
-                        host, path, target_string, source, branch
-                    )
+                    format!("https://{host}{path}/pull/{target_string}{source}:{branch}")
                 }
                 _ => todo!(),
             }

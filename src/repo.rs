@@ -95,14 +95,14 @@ mod git_repo_source_tests {
     fn parse_name() {
         let repo: GitRepoSource = "friday".parse().unwrap();
 
-        assert!(matches!(repo, GitRepoSource::Name(r) if r == "friday".to_string()));
+        assert!(matches!(repo, GitRepoSource::Name(r) if r == "friday"));
     }
 
     #[test]
     fn parse_short_path() {
         let repo: GitRepoSource = "rails/rails".parse().unwrap();
 
-        assert!(matches!(repo, GitRepoSource::Path(r) if r == "rails/rails".to_string()));
+        assert!(matches!(repo, GitRepoSource::Path(r) if r == "rails/rails"));
     }
 
     #[test]
@@ -126,7 +126,7 @@ mod git_repo_source_tests {
         let repo: GitRepoSource = "https://github.com/skipkayhil/sdev".parse().unwrap();
 
         assert!(
-            matches!(repo, GitRepoSource::Url { url, .. } if url.to_string() == "https://github.com/skipkayhil/sdev".to_string())
+            matches!(repo, GitRepoSource::Url { url, .. } if url.to_string() == "https://github.com/skipkayhil/sdev")
         );
     }
 
