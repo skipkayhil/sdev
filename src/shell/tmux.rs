@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::shell;
 
 #[derive(Clone)]
-pub struct SessionName(pub String);
+pub struct SessionName(String);
 
 impl From<&str> for SessionName {
     fn from(value: &str) -> Self {
@@ -38,6 +38,10 @@ impl Session {
         }
     }
 
+    pub fn attach_or_switch(&self) -> Result<(), shell::ShellError> {
+        attach_or_switch(&self.name)
+    }
+
     pub fn name_str(&self) -> &str {
         &self.name.0
     }
@@ -50,10 +54,10 @@ fn in_tmux() -> bool {
     std::env::var("TMUX").is_ok()
 }
 
-pub fn attach_or_switch<S: Into<SessionName>>(name: S) -> Result<(), shell::ShellError> {
+fn attach_or_switch(name: &SessionName) -> Result<(), shell::ShellError> {
     let subcommand = if in_tmux() { CMD_SWITCH } else { CMD_ATTACH };
 
-    shell::new!("tmux", subcommand, "-t", name.into().0).run(false)
+    shell::new!("tmux", subcommand, "-t", &name.0).run(false)
 }
 
 fn has(name: &SessionName) -> Result<Option<Session>, shell::ShellError> {

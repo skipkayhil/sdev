@@ -6,8 +6,7 @@ use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
 use walkdir::WalkDir;
 
 use crate::repo::GitRepo;
-use crate::shell::tmux;
-use crate::shell::tmux::Session;
+use crate::shell::tmux::{Session, list_sessions};
 use crate::ui::picker::Picker;
 
 mod ui;
@@ -122,7 +121,7 @@ impl App {
             }
         };
 
-        for session in tmux::list_sessions()? {
+        for session in list_sessions()? {
             self.session_picker.push(session);
         }
 
@@ -171,14 +170,13 @@ pub fn run(mode: &Mode, config: crate::Config) -> anyhow::Result<()> {
             let Some(repo) = app.repo_picker.selected_data() else {
                 return Ok(());
             };
-            Session::find_or_create_in(repo.name(), repo.path())?;
-            Ok(tmux::attach_or_switch(repo.name())?)
+            Ok(Session::find_or_create_in(repo.name(), repo.path())?.attach_or_switch()?)
         }
         Mode::Sessions => {
             let Some(session) = app.session_picker.selected_data() else {
                 return Ok(());
             };
-            Ok(tmux::attach_or_switch(session.name_str())?)
+            Ok(session.attach_or_switch()?)
         }
     }
 }
