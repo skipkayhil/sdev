@@ -5,9 +5,9 @@ use ratatui::DefaultTerminal;
 use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
 use walkdir::WalkDir;
 
-use crate::dep::tmux::Session;
 use crate::repo::GitRepo;
 use crate::shell::tmux;
+use crate::shell::tmux::Session;
 use crate::ui::picker::Picker;
 
 mod ui;
@@ -27,7 +27,7 @@ enum Status {
 struct App {
     mode: Mode,
     repo_picker: Picker<GitRepo, PathBuf>,
-    session_picker: Picker<String, ()>,
+    session_picker: Picker<Session, ()>,
     search: String,
     status: Status,
 }
@@ -40,7 +40,7 @@ impl App {
                 |repo_ref, data| repo_ref.relative_path(data).to_string_lossy().into(),
                 root.to_owned(),
             ),
-            session_picker: Picker::new(|str, _| str.to_string().into(), ()),
+            session_picker: Picker::new(|session, _| session.name_str().into(), ()),
             search: String::new(),
             status: Status::Running,
         }
@@ -171,14 +171,14 @@ pub fn run(mode: &Mode, config: crate::Config) -> anyhow::Result<()> {
             let Some(repo) = app.repo_picker.selected_data() else {
                 return Ok(());
             };
-            Session::process(repo.name().to_string(), repo.path().to_owned())?;
+            crate::dep::tmux::Session::process(repo.name().to_string(), repo.path().to_owned())?;
             Ok(tmux::attach_or_switch(repo.name())?)
         }
         Mode::Sessions => {
-            let Some(name) = app.session_picker.selected_data() else {
+            let Some(session) = app.session_picker.selected_data() else {
                 return Ok(());
             };
-            Ok(tmux::attach_or_switch(&*name)?)
+            Ok(tmux::attach_or_switch(session.name_str())?)
         }
     }
 }

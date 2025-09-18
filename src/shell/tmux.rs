@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::shell;
 
 #[derive(Clone)]
-pub struct SessionName(String);
+pub struct SessionName(pub String);
 
 impl From<&str> for SessionName {
     fn from(value: &str) -> Self {
@@ -17,6 +17,17 @@ impl From<&str> for SessionName {
                 })
                 .collect(),
         )
+    }
+}
+
+#[derive(Clone)]
+pub struct Session {
+    name: SessionName
+}
+
+impl Session {
+    pub fn name_str(&self) -> &str {
+        &self.name.0
     }
 }
 
@@ -43,12 +54,12 @@ pub fn has<S: Into<SessionName>>(name: S) -> Result<bool, shell::ShellError> {
     Ok(status)
 }
 
-pub fn list_sessions() -> Result<Vec<String>, anyhow::Error> {
+pub fn list_sessions() -> Result<Vec<Session>, anyhow::Error> {
     let raw_output = shell::new!("tmux", "list-sessions", "-F", "#{session_name}").output(false)?;
 
     let parsed_output = String::from_utf8(raw_output.stdout)?;
 
-    Ok(parsed_output.lines().map(str::to_string).collect())
+    Ok(parsed_output.lines().map(|s| { Session { name: SessionName::from(s) } }).collect())
 }
 
 pub fn new_session<S: Into<SessionName>>(name: S, path: &Path) -> Result<(), shell::ShellError> {
