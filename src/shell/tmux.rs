@@ -22,10 +22,22 @@ impl From<&str> for SessionName {
 
 #[derive(Clone)]
 pub struct Session {
-    name: SessionName
+    name: SessionName,
 }
 
 impl Session {
+    pub fn find_or_create_in<S: Into<SessionName>>(
+        name: S,
+        path: &Path,
+    ) -> Result<Self, shell::ShellError> {
+        let session_name = name.into();
+
+        match has(&session_name)? {
+            Some(session) => Ok(session),
+            None => Ok(new_session(&session_name, path)?),
+        }
+    }
+
     pub fn name_str(&self) -> &str {
         &self.name.0
     }
@@ -44,14 +56,17 @@ pub fn attach_or_switch<S: Into<SessionName>>(name: S) -> Result<(), shell::Shel
     shell::new!("tmux", subcommand, "-t", name.into().0).run(false)
 }
 
-pub fn has<S: Into<SessionName>>(name: S) -> Result<bool, shell::ShellError> {
-    let status = shell::new!("tmux", "has", "-t", format!("={}", name.into().0))
+fn has(name: &SessionName) -> Result<Option<Session>, shell::ShellError> {
+    if shell::new!("tmux", "has", "-t", format!("={}", name.0))
         // output instead of status to intercept stdout
         .output(false)?
         .status
-        .success();
-
-    Ok(status)
+        .success()
+    {
+        Ok(Some(Session { name: name.clone() }))
+    } else {
+        Ok(None)
+    }
 }
 
 pub fn list_sessions() -> Result<Vec<Session>, anyhow::Error> {
@@ -59,18 +74,16 @@ pub fn list_sessions() -> Result<Vec<Session>, anyhow::Error> {
 
     let parsed_output = String::from_utf8(raw_output.stdout)?;
 
-    Ok(parsed_output.lines().map(|s| { Session { name: SessionName::from(s) } }).collect())
+    Ok(parsed_output
+        .lines()
+        .map(|s| Session {
+            name: SessionName::from(s),
+        })
+        .collect())
 }
 
-pub fn new_session<S: Into<SessionName>>(name: S, path: &Path) -> Result<(), shell::ShellError> {
-    shell::new!(
-        "tmux",
-        "new-session",
-        "-d",
-        "-s",
-        name.into().0,
-        "-c",
-        &path
-    )
-    .run(false)
+fn new_session(name: &SessionName, path: &Path) -> Result<Session, shell::ShellError> {
+    shell::new!("tmux", "new-session", "-d", "-s", &name.0, "-c", &path).run(false)?;
+
+    Ok(Session { name: name.clone() })
 }

@@ -171,7 +171,7 @@ pub fn run(mode: &Mode, config: crate::Config) -> anyhow::Result<()> {
             let Some(repo) = app.repo_picker.selected_data() else {
                 return Ok(());
             };
-            crate::dep::tmux::Session::process(repo.name().to_string(), repo.path().to_owned())?;
+            Session::find_or_create_in(repo.name(), repo.path())?;
             Ok(tmux::attach_or_switch(repo.name())?)
         }
         Mode::Sessions => {

@@ -1,5 +1,4 @@
 pub mod git;
-pub mod tmux;
 
 type Unmeetable = anyhow::Error;
 type MetResult = Result<Status, Unmeetable>;
