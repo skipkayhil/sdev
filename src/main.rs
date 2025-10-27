@@ -1,5 +1,4 @@
 use clap::{Args, Parser, Subcommand};
-use home::home_dir;
 
 mod cmd;
 mod config;
@@ -50,7 +49,9 @@ fn main() -> anyhow::Result<()> {
 
     let config = Config {
         host: "github.com".to_string(),
-        root: home_dir().expect("unknown HOME directory").join("src"),
+        root: std::env::home_dir()
+            .expect("unknown HOME directory")
+            .join("src"),
         user: "skipkayhil".to_string(),
     };
 

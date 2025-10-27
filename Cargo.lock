@@ -2188,7 +2188,6 @@ dependencies = [
  "bstr",
  "clap",
  "gix",
- "home",
  "idna_adapter",
  "nucleo",
  "opener",
