@@ -45,10 +45,10 @@ impl FromStr for GitRepoSource {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::try_from(s).map_err(|e| e.to_string())?;
 
-        let path = url.path.to_path().map_err(|e| e.to_string())?;
-
         match url.scheme {
             Scheme::File => {
+                let path = url.path.to_path().map_err(|e| e.to_string())?;
+
                 for component in path.components() {
                     let Component::Normal(..) = component else {
                         return Err(format!("invalid repo: {s}"));
@@ -62,20 +62,9 @@ impl FromStr for GitRepoSource {
                 }
             }
             _ => {
-                let host = url.host().ok_or("invalid host for: {s}")?;
-                let relative_path = {
-                    let mut buffer = PathBuf::new();
-
-                    for component in path.with_extension("").components() {
-                        match component {
-                            Component::RootDir => (),
-                            Component::Normal(..) => buffer.push(component),
-                            _ => return Err(format!("invalid repo: {s}")),
-                        };
-                    }
-
-                    buffer
-                };
+                let host = url.host().ok_or(format!("invalid host for: {s}"))?;
+                let relative_path =
+                    normalize_path(&url).map_err(|_| format!("invalid path for: {s}"))?;
 
                 Ok(GitRepoSource::Url {
                     url: url.clone(),
@@ -136,8 +125,58 @@ mod git_repo_source_tests {
 
         assert!(result.is_err());
         assert_eq!(
-            "invalid repo: git@github.com:../evil.git",
+            "invalid path for: git@github.com:../evil.git",
             result.err().unwrap()
         );
+    }
+}
+
+#[derive(Debug)]
+pub enum PathNormalizationError {
+    Encoding,
+    Format,
+}
+
+pub fn normalize_path(url: &gix::Url) -> Result<PathBuf, PathNormalizationError> {
+    let path = url
+        .path
+        .to_path()
+        .map_err(|_| PathNormalizationError::Encoding)?;
+
+    let mut buffer = PathBuf::new();
+
+    for component in path.with_extension("").components() {
+        match component {
+            Component::RootDir => (),
+            Component::Normal(..) => buffer.push(component),
+            _ => return Err(PathNormalizationError::Format),
+        };
+    }
+
+    Ok(buffer)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_path;
+
+    #[test]
+    fn normalizes_path_of_http_url() {
+        let url = gix::Url::from_bytes("https://github.com/skipkayhil/sdev.git".into())
+            .expect("http url parses");
+
+        let path = normalize_path(&url).expect("path is utf8");
+
+        assert_eq!("skipkayhil/sdev", path.to_str().unwrap());
+    }
+
+    #[test]
+    fn normalizes_path_of_ssh_url() {
+        let url = gix::Url::from_bytes("git@github.com:skipkayhil/sdev.git".into())
+            .expect("http url parses");
+
+        let path = normalize_path(&url).expect("path is utf8");
+
+        assert_eq!("skipkayhil/sdev", path.to_str().unwrap());
     }
 }
