@@ -146,6 +146,32 @@ pub mod pr {
         use super::UrlStrategy;
 
         #[test]
+        fn github_origin_url_without_target() {
+            let url_strategy = UrlStrategy::GithubOrigin {
+                host: "github.com".into(),
+                path: "/skipkayhil/sdev".into(),
+            };
+
+            assert_eq!(
+                "https://github.com/skipkayhil/sdev/pull/hm-asdf",
+                url_strategy.to_url("hm-asdf".into(), &None)
+            );
+        }
+
+        #[test]
+        fn github_origin_url_with_target() {
+            let url_strategy = UrlStrategy::GithubOrigin {
+                host: "github.com".into(),
+                path: "/rails/rails".into(),
+            };
+
+            assert_eq!(
+                "https://github.com/rails/rails/pull/8-1-stable...hm-asdf",
+                url_strategy.to_url("hm-asdf".into(), &Some("8-1-stable".into()))
+            );
+        }
+
+        #[test]
         fn normalizes_path_of_http_url() {
             let url = gix::Url::from_bytes("https://github.com/skipkayhil/sdev.git".into())
                 .expect("http url parses");
