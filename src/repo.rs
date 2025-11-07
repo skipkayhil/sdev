@@ -79,6 +79,7 @@ impl FromStr for GitRepoSource {
 #[cfg(test)]
 mod git_repo_source_tests {
     use super::GitRepoSource;
+    use std::path::PathBuf;
 
     #[test]
     fn parse_name() {
@@ -112,13 +113,29 @@ mod git_repo_source_tests {
 
     #[test]
     fn parse_http_url() {
-        let repo: GitRepoSource = "https://github.com/skipkayhil/sdev".parse().unwrap();
+        let repo: GitRepoSource = "https://github.com/skipkayhil/sdev.git".parse().unwrap();
 
-        assert!(
-            matches!(repo, GitRepoSource::Url { url, .. } if url.to_string() == "https://github.com/skipkayhil/sdev")
-        );
+        let GitRepoSource::Url { url, host, path } = repo else {
+            panic!("repo is not a GitRepoSource::Url")
+        };
+
+        assert_eq!("https://github.com/skipkayhil/sdev.git", url.to_string());
+        assert_eq!("github.com", host);
+        assert_eq!(PathBuf::from("skipkayhil/sdev"), path);
     }
 
+    #[test]
+    fn parse_ssh_url() {
+        let repo: GitRepoSource = "git@github.com:skipkayhil/sdev.git".parse().unwrap();
+
+        let GitRepoSource::Url { url, host, path } = repo else {
+            panic!("repo is not a GitRepoSource::Url")
+        };
+
+        assert_eq!("git@github.com:skipkayhil/sdev.git", url.to_string());
+        assert_eq!("github.com", host);
+        assert_eq!(PathBuf::from("skipkayhil/sdev"), path);
+    }
     #[test]
     fn errors_on_url_path_traversal() {
         let result = "git@github.com:../evil.git".parse::<GitRepoSource>();
