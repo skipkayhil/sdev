@@ -108,7 +108,7 @@ impl TryFrom<&gix::Repository> for UrlStrategy {
 }
 
 impl UrlStrategy {
-    fn to_url(&self, branch: &bstr::BStr, target: &Option<String>) -> String {
+    fn pull_request_url(&self, branch: &bstr::BStr, target: &Option<String>) -> String {
         match self {
             Self::GithubOrigin { host, path } => {
                 let target_string = target
@@ -136,7 +136,7 @@ mod tests {
     use super::UrlStrategy;
 
     #[test]
-    fn github_origin_url_without_target() {
+    fn github_origin_pull_request_url_without_target() {
         let url_strategy = UrlStrategy::GithubOrigin {
             host: "github.com".into(),
             path: "skipkayhil/sdev".into(),
@@ -144,12 +144,12 @@ mod tests {
 
         assert_eq!(
             "https://github.com/skipkayhil/sdev/pull/hm-asdf",
-            url_strategy.to_url("hm-asdf".into(), &None)
+            url_strategy.pull_request_url("hm-asdf".into(), &None)
         );
     }
 
     #[test]
-    fn github_origin_url_with_target() {
+    fn github_origin_pull_request_url_with_target() {
         let url_strategy = UrlStrategy::GithubOrigin {
             host: "github.com".into(),
             path: "rails/rails".into(),
@@ -157,7 +157,7 @@ mod tests {
 
         assert_eq!(
             "https://github.com/rails/rails/pull/8-1-stable...hm-asdf",
-            url_strategy.to_url("hm-asdf".into(), &Some("8-1-stable".into()))
+            url_strategy.pull_request_url("hm-asdf".into(), &Some("8-1-stable".into()))
         );
     }
 }
@@ -177,7 +177,7 @@ pub mod pr {
         let head = repo.head_ref()?.ok_or(Error::DetachedHead)?;
         let branch = head.name().file_name();
 
-        let url = UrlStrategy::try_from(&repo)?.to_url(branch, target);
+        let url = UrlStrategy::try_from(&repo)?.pull_request_url(branch, target);
 
         if let Some(remote) = head.remote(Direction::Fetch) {
             // TODO: it would be cool if a "git status" type check could be added here which ensure
