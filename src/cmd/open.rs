@@ -141,6 +141,31 @@ pub mod pr {
         }
     }
 
+    #[cfg(test)]
+    mod tests {
+        use super::UrlStrategy;
+
+        #[test]
+        fn normalizes_path_of_http_url() {
+            let url = gix::Url::from_bytes("https://github.com/skipkayhil/sdev.git".into())
+                .expect("http url parses");
+
+            let path = UrlStrategy::normalized_path(&url).expect("path is utf8");
+
+            assert_eq!("/skipkayhil/sdev", path);
+        }
+
+        #[test]
+        fn normalizes_path_of_ssh_url() {
+            let url = gix::Url::from_bytes("git@github.com:skipkayhil/sdev.git".into())
+                .expect("http url parses");
+
+            let path = UrlStrategy::normalized_path(&url).expect("path is utf8");
+
+            assert_eq!("/skipkayhil/sdev", path);
+        }
+    }
+
     pub fn run(target: &Option<String>) -> anyhow::Result<()> {
         let pwd = env::current_dir()?;
         let repo = gix::discover(pwd)?;
