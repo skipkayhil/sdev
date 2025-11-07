@@ -1,170 +1,174 @@
+use bstr::ByteSlice;
+use gix::remote::Direction;
+
+use std::path::Component;
+
+const ORIGIN: &str = "origin";
+const UPSTREAM: &str = "upstream";
+
+#[derive(thiserror::Error, Debug)]
+#[error("error opening pr")]
+enum Error {
+    DetachedHead,
+    MissingOriginForFork,
+    MissingRemoteHost,
+    MissingRemoteUrl(&'static str),
+    MissingTargetRemote,
+    PathEncoding(#[source] bstr::Utf8Error),
+    PathFormat,
+}
+
+enum Remote {
+    Origin,
+    Upstream,
+}
+
+impl From<&Remote> for &str {
+    fn from(r: &Remote) -> Self {
+        match r {
+            Remote::Origin => ORIGIN,
+            Remote::Upstream => UPSTREAM,
+        }
+    }
+}
+
+enum UrlStrategy {
+    GithubOrigin {
+        host: String,
+        path: String,
+    },
+    GithubUpstream {
+        host: String,
+        path: String,
+        source: String,
+    },
+    Unknown,
+}
+
+impl TryFrom<&gix::Repository> for UrlStrategy {
+    type Error = Error;
+
+    fn try_from(repo: &gix::Repository) -> Result<Self, Error> {
+        let (target_remote, remote_type) = if let Ok(upstream) = repo.find_remote(UPSTREAM) {
+            (upstream, Remote::Upstream)
+        } else if let Ok(origin) = repo.find_remote(ORIGIN) {
+            (origin, Remote::Origin)
+        } else {
+            Err(Error::MissingTargetRemote)?
+        };
+
+        let target_git_url = target_remote
+            .url(Direction::Fetch)
+            .ok_or_else(|| Error::MissingRemoteUrl((&remote_type).into()))?;
+        let target_host = target_git_url.host().ok_or(Error::MissingRemoteHost)?;
+
+        let target_path =
+            crate::repo::normalize_path(target_git_url).map_err(|_| Error::PathFormat)?;
+
+        Ok(match target_host {
+            "github.com" => match remote_type {
+                Remote::Origin => Self::GithubOrigin {
+                    host: target_host.into(),
+                    path: target_path,
+                },
+                Remote::Upstream => {
+                    let origin = repo
+                        .find_remote(ORIGIN)
+                        .map_err(|_| Error::MissingOriginForFork)?;
+
+                    let url = origin
+                        .url(Direction::Fetch)
+                        .ok_or(Error::MissingRemoteUrl(ORIGIN))?;
+
+                    let source = {
+                        let path = url.path.to_path().map_err(Error::PathEncoding)?;
+
+                        path.with_extension("")
+                            .components()
+                            .find_map(|c| match c {
+                                Component::Normal(s) => Some(s),
+                                _ => None,
+                            })
+                            .ok_or(Error::PathFormat)?
+                            .to_str()
+                            .ok_or(Error::PathFormat)?
+                            .to_string()
+                    };
+
+                    Self::GithubUpstream {
+                        host: target_host.into(),
+                        path: target_path,
+                        source,
+                    }
+                }
+            },
+            _ => Self::Unknown,
+        })
+    }
+}
+
+impl UrlStrategy {
+    fn to_url(&self, branch: &bstr::BStr, target: &Option<String>) -> String {
+        match self {
+            Self::GithubOrigin { host, path } => {
+                let target_string = target
+                    .as_ref()
+                    .map(|name| format!("{name}..."))
+                    .unwrap_or_default();
+
+                format!("https://{host}/{path}/pull/{target_string}{branch}")
+            }
+            Self::GithubUpstream { host, path, source } => {
+                let target_string = target
+                    .as_ref()
+                    .map(|name| format!("{name}..."))
+                    .unwrap_or_default();
+
+                format!("https://{host}/{path}/pull/{target_string}{source}:{branch}")
+            }
+            _ => todo!(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UrlStrategy;
+
+    #[test]
+    fn github_origin_url_without_target() {
+        let url_strategy = UrlStrategy::GithubOrigin {
+            host: "github.com".into(),
+            path: "skipkayhil/sdev".into(),
+        };
+
+        assert_eq!(
+            "https://github.com/skipkayhil/sdev/pull/hm-asdf",
+            url_strategy.to_url("hm-asdf".into(), &None)
+        );
+    }
+
+    #[test]
+    fn github_origin_url_with_target() {
+        let url_strategy = UrlStrategy::GithubOrigin {
+            host: "github.com".into(),
+            path: "rails/rails".into(),
+        };
+
+        assert_eq!(
+            "https://github.com/rails/rails/pull/8-1-stable...hm-asdf",
+            url_strategy.to_url("hm-asdf".into(), &Some("8-1-stable".into()))
+        );
+    }
+}
+
 pub mod pr {
-    use bstr::ByteSlice;
-    use gix;
     use gix::remote::Direction;
     use std::env;
-    use std::path::Component;
 
     use crate::shell;
 
-    const ORIGIN: &str = "origin";
-    const UPSTREAM: &str = "upstream";
-
-    #[derive(thiserror::Error, Debug)]
-    #[error("error opening pr")]
-    enum Error {
-        DetachedHead,
-        MissingOriginForFork,
-        MissingRemoteHost,
-        MissingRemoteUrl(&'static str),
-        MissingTargetRemote,
-        PathEncoding(#[source] bstr::Utf8Error),
-        PathFormat,
-    }
-
-    enum Remote {
-        Origin,
-        Upstream,
-    }
-
-    impl From<&Remote> for &str {
-        fn from(r: &Remote) -> Self {
-            match r {
-                Remote::Origin => ORIGIN,
-                Remote::Upstream => UPSTREAM,
-            }
-        }
-    }
-
-    enum UrlStrategy {
-        GithubOrigin {
-            host: String,
-            path: String,
-        },
-        GithubUpstream {
-            host: String,
-            path: String,
-            source: String,
-        },
-        Unknown,
-    }
-
-    impl TryFrom<&gix::Repository> for UrlStrategy {
-        type Error = Error;
-
-        fn try_from(repo: &gix::Repository) -> Result<Self, Error> {
-            let (target_remote, remote_type) = if let Ok(upstream) = repo.find_remote(UPSTREAM) {
-                (upstream, Remote::Upstream)
-            } else if let Ok(origin) = repo.find_remote(ORIGIN) {
-                (origin, Remote::Origin)
-            } else {
-                Err(Error::MissingTargetRemote)?
-            };
-
-            let target_git_url = target_remote
-                .url(Direction::Fetch)
-                .ok_or_else(|| Error::MissingRemoteUrl((&remote_type).into()))?;
-            let target_host = target_git_url.host().ok_or(Error::MissingRemoteHost)?;
-
-            let target_path =
-                crate::repo::normalize_path(target_git_url).map_err(|_| Error::PathFormat)?;
-
-            Ok(match target_host {
-                "github.com" => match remote_type {
-                    Remote::Origin => Self::GithubOrigin {
-                        host: target_host.into(),
-                        path: target_path,
-                    },
-                    Remote::Upstream => {
-                        let origin = repo
-                            .find_remote(ORIGIN)
-                            .map_err(|_| Error::MissingOriginForFork)?;
-
-                        let url = origin
-                            .url(Direction::Fetch)
-                            .ok_or(Error::MissingRemoteUrl(ORIGIN))?;
-
-                        let source = {
-                            let path = url.path.to_path().map_err(Error::PathEncoding)?;
-
-                            path.with_extension("")
-                                .components()
-                                .find_map(|c| match c {
-                                    Component::Normal(s) => Some(s),
-                                    _ => None,
-                                })
-                                .ok_or(Error::PathFormat)?
-                                .to_str()
-                                .ok_or(Error::PathFormat)?
-                                .to_string()
-                        };
-
-                        Self::GithubUpstream {
-                            host: target_host.into(),
-                            path: target_path,
-                            source,
-                        }
-                    }
-                },
-                _ => Self::Unknown,
-            })
-        }
-    }
-
-    impl UrlStrategy {
-        fn to_url(&self, branch: &bstr::BStr, target: &Option<String>) -> String {
-            match self {
-                Self::GithubOrigin { host, path } => {
-                    let target_string = target
-                        .as_ref()
-                        .map(|name| format!("{name}..."))
-                        .unwrap_or_default();
-
-                    format!("https://{host}/{path}/pull/{target_string}{branch}")
-                }
-                Self::GithubUpstream { host, path, source } => {
-                    let target_string = target
-                        .as_ref()
-                        .map(|name| format!("{name}..."))
-                        .unwrap_or_default();
-
-                    format!("https://{host}/{path}/pull/{target_string}{source}:{branch}")
-                }
-                _ => todo!(),
-            }
-        }
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::UrlStrategy;
-
-        #[test]
-        fn github_origin_url_without_target() {
-            let url_strategy = UrlStrategy::GithubOrigin {
-                host: "github.com".into(),
-                path: "skipkayhil/sdev".into(),
-            };
-
-            assert_eq!(
-                "https://github.com/skipkayhil/sdev/pull/hm-asdf",
-                url_strategy.to_url("hm-asdf".into(), &None)
-            );
-        }
-
-        #[test]
-        fn github_origin_url_with_target() {
-            let url_strategy = UrlStrategy::GithubOrigin {
-                host: "github.com".into(),
-                path: "rails/rails".into(),
-            };
-
-            assert_eq!(
-                "https://github.com/rails/rails/pull/8-1-stable...hm-asdf",
-                url_strategy.to_url("hm-asdf".into(), &Some("8-1-stable".into()))
-            );
-        }
-    }
+    use super::{Error, ORIGIN, UrlStrategy};
 
     pub fn run(target: &Option<String>) -> anyhow::Result<()> {
         let pwd = env::current_dir()?;
