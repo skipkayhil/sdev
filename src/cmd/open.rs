@@ -174,6 +174,7 @@ mod tests {
 pub mod file {
     use anyhow::anyhow;
     use std::env;
+    use std::fs;
     use std::path::Path;
 
     use super::UrlStrategy;
@@ -184,7 +185,9 @@ pub mod file {
 
         let repo_root = repo.workdir().ok_or(anyhow!("No worktree"))?;
 
-        let relative_path = path
+        let canonical_path = fs::canonicalize(path)?;
+
+        let relative_path = canonical_path
             .strip_prefix(repo_root)
             .map_err(|_| anyhow!("Path not in worktree"))?
             .to_str()
