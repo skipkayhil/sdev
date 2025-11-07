@@ -1,7 +1,9 @@
 pub mod pr {
+    use bstr::ByteSlice;
     use gix;
     use gix::remote::Direction;
     use std::env;
+    use std::path::Component;
 
     use crate::shell;
 
@@ -16,7 +18,8 @@ pub mod pr {
         MissingRemoteHost,
         MissingRemoteUrl(&'static str),
         MissingTargetRemote,
-        PathEncoding(#[source] std::string::FromUtf8Error),
+        PathEncoding(#[source] bstr::Utf8Error),
+        PathFormat,
     }
 
     enum Remote {
@@ -81,11 +84,17 @@ pub mod pr {
                             .ok_or(Error::MissingRemoteUrl(ORIGIN))?;
 
                         let source = {
-                            let utf = url.path.strip_suffix(b".git").unwrap_or(&url.path).to_vec();
-                            let path = String::from_utf8(utf).map_err(Error::PathEncoding)?;
-                            path.split('/')
-                                .next()
-                                .expect("remote path is missing a /")
+                            let path = url.path.to_path().map_err(Error::PathEncoding)?;
+
+                            path.with_extension("")
+                                .components()
+                                .find_map(|c| match c {
+                                    Component::Normal(s) => Some(s),
+                                    _ => None,
+                                })
+                                .ok_or(Error::PathFormat)?
+                                .to_str()
+                                .ok_or(Error::PathFormat)?
                                 .to_string()
                         };
 
@@ -110,7 +119,7 @@ pub mod pr {
                         .map(|name| format!("{name}..."))
                         .unwrap_or_default();
 
-                    format!("https://{host}{path}/pull/{target_string}{branch}")
+                    format!("https://{host}/{path}/pull/{target_string}{branch}")
                 }
                 Self::GithubUpstream { host, path, source } => {
                     let target_string = target
@@ -118,26 +127,18 @@ pub mod pr {
                         .map(|name| format!("{name}..."))
                         .unwrap_or_default();
 
-                    format!("https://{host}{path}/pull/{target_string}{source}:{branch}")
+                    format!("https://{host}/{path}/pull/{target_string}{source}:{branch}")
                 }
                 _ => todo!(),
             }
         }
 
         fn normalized_path(git_url: &gix::Url) -> Result<String, Error> {
-            let utf = git_url
-                .path
-                .strip_suffix(b".git")
-                .unwrap_or(&git_url.path)
-                .to_vec();
-            let path = String::from_utf8(utf).map_err(Error::PathEncoding)?;
-
-            Ok(match git_url.scheme {
-                // SSH Scheme has a : between host/path, so no leading /
-                gix::url::Scheme::Ssh => format!("/{path}"),
-                // All? other Schemes have / between host/path, so path has a leading /
-                _ => path,
-            })
+            let buffer = crate::repo::normalize_path(git_url).map_err(|_| Error::PathFormat)?;
+            Ok(buffer
+                .to_str()
+                .expect("encoding was already checked")
+                .into())
         }
     }
 
@@ -149,7 +150,7 @@ pub mod pr {
         fn github_origin_url_without_target() {
             let url_strategy = UrlStrategy::GithubOrigin {
                 host: "github.com".into(),
-                path: "/skipkayhil/sdev".into(),
+                path: "skipkayhil/sdev".into(),
             };
 
             assert_eq!(
@@ -162,7 +163,7 @@ pub mod pr {
         fn github_origin_url_with_target() {
             let url_strategy = UrlStrategy::GithubOrigin {
                 host: "github.com".into(),
-                path: "/rails/rails".into(),
+                path: "rails/rails".into(),
             };
 
             assert_eq!(
@@ -178,7 +179,7 @@ pub mod pr {
 
             let path = UrlStrategy::normalized_path(&url).expect("path is utf8");
 
-            assert_eq!("/skipkayhil/sdev", path);
+            assert_eq!("skipkayhil/sdev", path);
         }
 
         #[test]
@@ -188,7 +189,7 @@ pub mod pr {
 
             let path = UrlStrategy::normalized_path(&url).expect("path is utf8");
 
-            assert_eq!("/skipkayhil/sdev", path);
+            assert_eq!("skipkayhil/sdev", path);
         }
     }
 
