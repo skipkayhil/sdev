@@ -14,7 +14,7 @@ pub mod pr {
         DetachedHead,
         MissingOriginForFork,
         MissingRemoteHost,
-        MissingRemoteUrl(String),
+        MissingRemoteUrl(&'static str),
         MissingTargetRemote,
         PathEncoding(#[source] std::string::FromUtf8Error),
     }
@@ -24,11 +24,11 @@ pub mod pr {
         Upstream,
     }
 
-    impl From<&Remote> for String {
+    impl From<&Remote> for &str {
         fn from(r: &Remote) -> Self {
             match r {
-                Remote::Origin => ORIGIN.to_string(),
-                Remote::Upstream => UPSTREAM.to_string(),
+                Remote::Origin => ORIGIN,
+                Remote::Upstream => UPSTREAM,
             }
         }
     }
@@ -78,7 +78,7 @@ pub mod pr {
 
                         let url = origin
                             .url(Direction::Fetch)
-                            .ok_or_else(|| Error::MissingRemoteUrl(ORIGIN.to_string()))?;
+                            .ok_or(Error::MissingRemoteUrl(ORIGIN))?;
 
                         let source = {
                             let utf = url.path.strip_suffix(b".git").unwrap_or(&url.path).to_vec();
@@ -107,14 +107,16 @@ pub mod pr {
                 Self::GithubOrigin { host, path } => {
                     let target_string = target
                         .as_ref()
-                        .map_or("".to_string(), |name| format!("{name}..."));
+                        .map(|name| format!("{name}..."))
+                        .unwrap_or_default();
 
                     format!("https://{host}{path}/pull/{target_string}{branch}")
                 }
                 Self::GithubUpstream { host, path, source } => {
                     let target_string = target
                         .as_ref()
-                        .map_or("".to_string(), |name| format!("{name}..."));
+                        .map(|name| format!("{name}..."))
+                        .unwrap_or_default();
 
                     format!("https://{host}{path}/pull/{target_string}{source}:{branch}")
                 }
