@@ -129,6 +129,15 @@ impl UrlStrategy {
             _ => todo!(),
         }
     }
+
+    fn file_url(&self, relative_path: &str) -> String {
+        match self {
+            Self::GithubOrigin { host, path } => {
+                format!("https://{host}/{path}/blob/-/{relative_path}")
+            }
+            _ => todo!(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -159,6 +168,35 @@ mod tests {
             "https://github.com/rails/rails/pull/8-1-stable...hm-asdf",
             url_strategy.pull_request_url("hm-asdf".into(), &Some("8-1-stable".into()))
         );
+    }
+}
+
+pub mod file {
+    use anyhow::anyhow;
+    use std::env;
+    use std::path::Path;
+
+    use super::UrlStrategy;
+
+    pub fn run(path: &Path) -> anyhow::Result<()> {
+        let pwd = env::current_dir()?;
+        let repo = gix::discover(pwd)?;
+
+        let repo_root = repo.workdir().ok_or(anyhow!("No worktree"))?;
+
+        let relative_path = path
+            .strip_prefix(repo_root)
+            .map_err(|_| anyhow!("Path not in worktree"))?
+            .to_str()
+            .ok_or(anyhow!("Path is invalid UTF-8"))?;
+
+        let url = UrlStrategy::try_from(&repo)?.file_url(relative_path);
+
+        println!("Opening {url}");
+
+        opener::open(url)?;
+
+        Ok(())
     }
 }
 

@@ -1,4 +1,5 @@
 use clap::{Args, Parser, Subcommand};
+use std::path::PathBuf;
 
 mod cmd;
 mod config;
@@ -40,6 +41,8 @@ struct OpenArgs {
 
 #[derive(Debug, Subcommand)]
 enum OpenCommands {
+    /// Open the file in the remote's UI
+    File { path: PathBuf },
     /// Open the New Pull Request form for the current branch
     Pr { target: Option<String> },
 }
@@ -58,6 +61,7 @@ fn main() -> anyhow::Result<()> {
     match &cli.command {
         Commands::Clone { repo } => cmd::clone::run(repo, &config),
         Commands::Open(open) => match &open.command {
+            OpenCommands::File { path } => cmd::open::file::run(path),
             OpenCommands::Pr { target } => cmd::open::pr::run(target),
         },
         Commands::Tmux { mode } => cmd::tmux::run(mode, config),
