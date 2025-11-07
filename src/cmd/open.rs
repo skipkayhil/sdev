@@ -135,6 +135,9 @@ impl UrlStrategy {
             Self::GithubOrigin { host, path } => {
                 format!("https://{host}/{path}/blob/-/{relative_path}")
             }
+            Self::GithubUpstream { host, path, .. } => {
+                format!("https://{host}/{path}/blob/-/{relative_path}")
+            }
             _ => todo!(),
         }
     }
