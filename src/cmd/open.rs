@@ -66,7 +66,8 @@ pub mod pr {
                 .ok_or_else(|| Error::MissingRemoteUrl((&remote_type).into()))?;
             let target_host = target_git_url.host().ok_or(Error::MissingRemoteHost)?;
 
-            let target_path = Self::normalized_path(target_git_url)?;
+            let target_path =
+                crate::repo::normalize_path(target_git_url).map_err(|_| Error::PathFormat)?;
 
             Ok(match target_host {
                 "github.com" => match remote_type {
@@ -132,14 +133,6 @@ pub mod pr {
                 _ => todo!(),
             }
         }
-
-        fn normalized_path(git_url: &gix::Url) -> Result<String, Error> {
-            let buffer = crate::repo::normalize_path(git_url).map_err(|_| Error::PathFormat)?;
-            Ok(buffer
-                .to_str()
-                .expect("encoding was already checked")
-                .into())
-        }
     }
 
     #[cfg(test)]
@@ -170,26 +163,6 @@ pub mod pr {
                 "https://github.com/rails/rails/pull/8-1-stable...hm-asdf",
                 url_strategy.to_url("hm-asdf".into(), &Some("8-1-stable".into()))
             );
-        }
-
-        #[test]
-        fn normalizes_path_of_http_url() {
-            let url = gix::Url::from_bytes("https://github.com/skipkayhil/sdev.git".into())
-                .expect("http url parses");
-
-            let path = UrlStrategy::normalized_path(&url).expect("path is utf8");
-
-            assert_eq!("skipkayhil/sdev", path);
-        }
-
-        #[test]
-        fn normalizes_path_of_ssh_url() {
-            let url = gix::Url::from_bytes("git@github.com:skipkayhil/sdev.git".into())
-                .expect("http url parses");
-
-            let path = UrlStrategy::normalized_path(&url).expect("path is utf8");
-
-            assert_eq!("skipkayhil/sdev", path);
         }
     }
 

@@ -35,7 +35,7 @@ pub enum GitRepoSource {
     Url {
         url: Url,
         host: String,
-        path: PathBuf,
+        path: String,
     },
 }
 
@@ -137,7 +137,7 @@ pub enum PathNormalizationError {
     Format,
 }
 
-pub fn normalize_path(url: &gix::Url) -> Result<PathBuf, PathNormalizationError> {
+pub fn normalize_path(url: &gix::Url) -> Result<String, PathNormalizationError> {
     let path = url
         .path
         .to_path()
@@ -153,7 +153,10 @@ pub fn normalize_path(url: &gix::Url) -> Result<PathBuf, PathNormalizationError>
         };
     }
 
-    Ok(buffer)
+    Ok(buffer
+        .to_str()
+        .ok_or(PathNormalizationError::Encoding)?
+        .to_string())
 }
 
 #[cfg(test)]
@@ -167,7 +170,7 @@ mod tests {
 
         let path = normalize_path(&url).expect("path is utf8");
 
-        assert_eq!("skipkayhil/sdev", path.to_str().unwrap());
+        assert_eq!("skipkayhil/sdev", path);
     }
 
     #[test]
@@ -177,6 +180,6 @@ mod tests {
 
         let path = normalize_path(&url).expect("path is utf8");
 
-        assert_eq!("skipkayhil/sdev", path.to_str().unwrap());
+        assert_eq!("skipkayhil/sdev", path);
     }
 }
