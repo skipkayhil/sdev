@@ -6,10 +6,14 @@ use nucleo::{
     Config, Nucleo, Utf32String,
     pattern::{CaseMatching, Normalization},
 };
-use ratatui::{
-    prelude::{Buffer, Line, Rect, Span, Style, Stylize},
-    widgets::{Block, Borders, Widget},
+use ratatui_core::{
+    buffer::Buffer,
+    layout::Rect,
+    style::{Style, Stylize},
+    text::{Line, Span},
+    widgets::Widget,
 };
+use ratatui_widgets::{block::Block, borders::Borders};
 
 const PADDED_CHEVRON: &str = "> ";
 static MATCHER: LazyLock<Mutex<Matcher>> = LazyLock::new(|| Mutex::new(Matcher::default()));

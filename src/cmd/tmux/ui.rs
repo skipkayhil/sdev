@@ -1,7 +1,8 @@
-use ratatui::{
-    Frame,
+use ratatui_core::{
     layout::{Constraint, Layout},
-    prelude::{Line, Stylize},
+    style::Stylize,
+    terminal::Frame,
+    text::Line,
 };
 
 use crate::cmd::tmux::{App, Mode};

@@ -4,13 +4,16 @@ use std::path::PathBuf;
 use gix::Url;
 use gix::interrupt::IS_INTERRUPTED;
 use gix::progress::Discard;
-use ratatui::{
-    DefaultTerminal, TerminalOptions, Viewport,
-    prelude::{Line, Stylize, Widget},
-    widgets::Paragraph,
+use ratatui_core::{
+    style::Stylize,
+    terminal::{TerminalOptions, Viewport},
+    text::Line,
+    widgets::Widget,
 };
+use ratatui_widgets::paragraph::Paragraph;
 
 use crate::dep::{Dep, MeetResult, MetResult};
+use crate::ui::ratinit::{self, DefaultTerminal};
 
 pub struct Clone {
     url: Url,
@@ -70,13 +73,13 @@ impl Dep for Clone {
     }
 
     fn meet(&self) -> MeetResult {
-        let mut terminal = ratatui::init_with_options(TerminalOptions {
+        let mut terminal = ratinit::init_with_options(TerminalOptions {
             viewport: Viewport::Inline(5),
         });
 
         let result = self.run(&mut terminal);
 
-        ratatui::restore();
+        ratinit::restore();
 
         result
     }

@@ -1,13 +1,13 @@
 use std::path::{Path, PathBuf};
 
 use clap::ValueEnum;
-use ratatui::DefaultTerminal;
-use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
+use ratatui_crossterm::crossterm::event::{self, KeyCode, KeyEventKind};
 use walkdir::WalkDir;
 
 use crate::repo::GitRepo;
 use crate::shell::tmux::{Session, list_sessions};
 use crate::ui::picker::Picker;
+use crate::ui::ratinit::{self, DefaultTerminal};
 
 mod ui;
 
@@ -151,12 +151,12 @@ impl App {
 }
 
 pub fn run(mode: &Mode, config: crate::Config) -> anyhow::Result<()> {
-    let mut terminal = ratatui::init();
+    let mut terminal = ratinit::init();
 
     let mut app = App::new(mode.clone(), &config.root);
     let app_result = app.run(&mut terminal, &config.root);
 
-    ratatui::restore();
+    ratinit::restore();
 
     // Ensure the terminal is reset before possibly returning early
     app_result?;
