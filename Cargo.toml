@@ -25,4 +25,9 @@ features = ["std", "derive", "error-context", "help", "usage"]
 [dependencies.gix]
 version = "0"
 default-features = false
-features = ["blocking-http-transport-reqwest-rust-tls", "max-performance-safe", "worktree-mutation"]
+features = [
+  "blocking-http-transport-reqwest-rust-tls",
+  "max-performance",
+  "sha1",
+  "worktree-mutation"
+]
