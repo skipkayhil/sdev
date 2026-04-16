@@ -12,7 +12,7 @@ use crate::config::Config;
 use crate::repo::GitRepoSource;
 
 #[derive(Parser)]
-#[command(version, disable_help_subcommand = true)]
+#[command(version = env!("SDEV_VCS_REVISION"), disable_help_subcommand = true)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

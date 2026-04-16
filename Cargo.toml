@@ -2,6 +2,7 @@
 name = "sdev"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -30,4 +31,11 @@ features = [
   "max-performance",
   "sha1",
   "worktree-mutation"
+]
+
+[build-dependencies.gix]
+version = "0"
+default-features = false
+features = [
+  "sha1",
 ]
