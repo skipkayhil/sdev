@@ -157,12 +157,13 @@ pub enum PathNormalizationError {
 pub fn normalize_path(url: &gix::Url) -> Result<String, PathNormalizationError> {
     let path = url
         .path
+        .trim_suffix(b".git")
         .to_path()
         .map_err(|_| PathNormalizationError::Encoding)?;
 
     let mut buffer = PathBuf::new();
 
-    for component in path.with_extension("").components() {
+    for component in path.components() {
         match component {
             Component::RootDir => (),
             Component::Normal(..) => buffer.push(component),
@@ -188,6 +189,16 @@ mod tests {
         let path = normalize_path(&url).expect("path is utf8");
 
         assert_eq!("skipkayhil/sdev", path);
+    }
+
+    #[test]
+    fn normalizes_path_of_http_url_with_dot() {
+        let url = gix::Url::from_bytes("https://github.com/rubygems/rubygems.org".into())
+            .expect("http url parses");
+
+        let path = normalize_path(&url).expect("path is utf8");
+
+        assert_eq!("rubygems/rubygems.org", path);
     }
 
     #[test]
