@@ -27,13 +27,13 @@ impl Clone {
 
     fn run(&self, terminal: &mut DefaultTerminal) -> MeetResult {
         terminal.insert_before(1, |buf| {
-            Line::from(vec!["src".dark_gray(), format!(" {}", &self.url).into()])
+            Line::from(vec!["src".dark_gray(), format!(" {}", self.url).into()])
                 .render(buf.area, buf);
         })?;
         terminal.insert_before(1, |buf| {
             Line::from(vec![
                 "dst".dark_gray(),
-                format!(" {}", &self.path.to_string_lossy()).into(),
+                format!(" {}", self.path.to_string_lossy()).into(),
             ])
             .render(buf.area, buf);
         })?;

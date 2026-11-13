@@ -74,7 +74,7 @@ pub enum ShellError {
 
 impl fmt::Display for Shell {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", &self.0.get_program().to_str().unwrap())?;
+        write!(f, "{}", self.0.get_program().to_str().unwrap())?;
 
         for arg in self.0.get_args() {
             write!(f, " {}", arg.to_str().unwrap())?;
